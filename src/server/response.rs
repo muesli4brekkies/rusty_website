@@ -10,7 +10,7 @@ use {
   types::Response,
 };
 
-pub fn get(path: String) -> Result<Response, io::Error> {
+pub fn get(path: &String) -> Result<Response, io::Error> {
   let full_path = format!("{}{}", consts::PATH.root, &path);
   let indexed_path = format!(
     "{}{}",

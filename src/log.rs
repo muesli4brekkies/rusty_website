@@ -1,5 +1,5 @@
 use crate::{consts, types};
-use std::{fmt, fs, io, time};
+use std::{fs, io, time};
 
 pub trait Err {
   fn log_err(self);
@@ -9,48 +9,74 @@ impl Err for String {
   fn log_err(self) {
     let err = format!("ERROR - {}\n", self);
     eprint!("{err}");
-    write(err);
+    flush(err);
   }
 }
 
-use types::{CxnLog, LogKind, Request};
+fn write_log(string: String, log_type: LogFmt, cxn_log: CxnLog) {
+  let line = match log_type {
+    LogFmt::Timestamp => format!("\tDate: {string}\n"),
+
+    LogFmt::Path => format!("\tRequest:\n\t\tPath: {string}\n"),
+    LogFmt::Host => format!("\t\tHost: {string}\n"),
+    LogFmt::Referer => format!("\t\tReferer: {string}\n"),
+    LogFmt::Ip => format!("\t\tIp: {string}\n"),
+
+    LogFmt::Status => format!("\tResponse:\n\t\tStatus: {string}\n"),
+    LogFmt::Length => format!("\t\tLength: {string} bytes\n"),
+    LogFmt::Turnaround => format!("\t\tTurnaround: {string}\n"),
+
+    LogFmt::Uptime => format!("\tUp-time:{string}\n"),
+    LogFmt::NumCon => format!("END connection {string}\n"),
+  };
+  cxn_log.push_str(&line);
+}
+
+use {
+  consts::domains,
+  types::{CxnLog, Host, Log, LogFmt},
+};
 pub trait Logging {
-  fn tee_to_log(self, log_type: LogKind, cxn_log: CxnLog) -> Self;
+  fn log_this(self, cxn_log: CxnLog);
 }
 
-impl Logging for Request {
-  fn tee_to_log(self, log_type: LogKind, cxn_log: CxnLog) -> Self {
-    "\tRequest:\n".tee_to_log(LogKind::NoFmt, cxn_log);
-    Request(
-      self
-        .0
-        .into_iter()
-        .map(|l| l.tee_to_log(log_type, cxn_log))
-        .collect(),
-    )
+impl Logging for Log {
+  fn log_this(self, cxn_log: CxnLog) {
+    [
+      // Request
+      (LogFmt::Path, &self.path.unwrap_or("None".to_string())),
+      (
+        LogFmt::Host,
+        &self
+          .host
+          .map(|v| match v {
+            Host::Mycology => domains::MYCOLOGY,
+            Host::Site => domains::NO_DOMAIN,
+          })
+          .unwrap_or("None")
+          .to_string(),
+      ),
+      (LogFmt::Referer, &self.referer.unwrap_or("None".to_string())),
+      (LogFmt::Ip, &self.ip.unwrap_or("None".to_string())),
+      // Info
+      // Response
+      (LogFmt::Status, &self.status),
+      (LogFmt::Length, &self.length.to_string()),
+      (LogFmt::Turnaround, &self.turnaround.to_elapsed()),
+      // Info
+      (LogFmt::Uptime, &self.uptime.to_uptime()),
+      (LogFmt::NumCon, &self.num_con.to_string()),
+    ]
+    .into_iter()
+    .for_each(|(log_type, log)| {
+      write_log(log.to_string(), log_type, cxn_log);
+    });
   }
 }
 
-impl<T> Logging for T
-where
-  T: fmt::Display,
-{
-  fn tee_to_log(self, log_type: LogKind, cxn_log: CxnLog) -> Self {
-    let line = match log_type {
-      LogKind::Request => format!("\t\t{self}\n"),
-      LogKind::Length => format!("\t\tLength: {self} bytes\n"),
-      LogKind::Status => format!("\tResponse:\n\t\tStatus: {self}\n"),
-
-      LogKind::Elapsed => format!("\t\tTime: {self}μs \n"),
-      LogKind::Uptime => format!("\tUp-time:{self}\n"),
-      LogKind::Timestamp => format!("\tDate: {self}\n"),
-
-      LogKind::End => format!("END connection {self}\n"),
-
-      LogKind::NoFmt => self.to_string(),
-    };
-    cxn_log.push_str(&line);
-    self
+impl Logging for time::SystemTime {
+  fn log_this(self, cxn_log: CxnLog) {
+    write_log(self.to_timestamp(), LogFmt::Timestamp, cxn_log);
   }
 }
 
@@ -67,24 +93,6 @@ impl ToTimeStamp for time::SystemTime {
   }
 }
 
-use types::EndLog;
-impl Logging for EndLog {
-  fn tee_to_log(self, _: LogKind, cxn_log: CxnLog) -> Self {
-    [
-      (LogKind::Status, &self.status),
-      (LogKind::Length, &self.length.to_string()),
-      (LogKind::Elapsed, &self.start_cxn.to_elapsed()),
-      (LogKind::Uptime, &self.start_time.to_uptime()),
-      (LogKind::End, &self.num_con.to_string()),
-    ]
-    .into_iter()
-    .for_each(|(log_type, log)| {
-      log.tee_to_log(log_type, cxn_log);
-    });
-    self
-  }
-}
-
 trait TimeManip {
   fn to_elapsed(self) -> String;
   fn to_uptime(self) -> String;
@@ -92,7 +100,14 @@ trait TimeManip {
 
 impl TimeManip for time::SystemTime {
   fn to_elapsed(self) -> String {
-    self.elapsed().unwrap().as_micros().to_string()
+    let time = self.elapsed().unwrap().as_micros();
+    if time < 1e3 as u128 {
+      format!("{}μs", time)
+    } else if time < 1e6 as u128 {
+      format!("{}ms", time / 1e3 as u128)
+    } else {
+      format!("{}s", time / 1e6 as u128)
+    }
   }
 
   fn to_uptime(self) -> String {
@@ -100,23 +115,7 @@ impl TimeManip for time::SystemTime {
   }
 }
 
-use io::Write;
-pub fn write(log: String) {
-  match fs::OpenOptions::new()
-    .append(true)
-    .create(true)
-    .open(consts::LOG_FILE)
-  {
-    Err(e) => eprintln!("{} {} - cannot open log file", e, consts::LOG_FILE),
-    Ok(mut v) => {
-      if let Err(e) = v.write_all(log.as_bytes()) {
-        eprintln!("{} {} - error writing to log file", e, consts::LOG_FILE)
-      }
-    }
-  }
-}
-
-pub trait ToWdhms {
+trait ToWdhms {
   fn to_wdhms(self) -> String;
 }
 
@@ -137,5 +136,21 @@ impl ToWdhms for u64 {
         a
       }
     })
+  }
+}
+
+use io::Write;
+pub fn flush(log: String) {
+  match fs::OpenOptions::new()
+    .append(true)
+    .create(true)
+    .open(consts::LOG_FILE)
+  {
+    Err(e) => eprintln!("{} {} - cannot open log file", e, consts::LOG_FILE),
+    Ok(mut v) => {
+      if let Err(e) = v.write_all(log.as_bytes()) {
+        eprintln!("{} {} - error writing to log file", e, consts::LOG_FILE)
+      }
+    }
   }
 }

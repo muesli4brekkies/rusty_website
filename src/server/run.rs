@@ -1,3 +1,5 @@
+use crate::log::Logging;
+use crate::types::RequestInfo;
 use crate::{consts, log, mycology, server, types};
 use std::{io, net, time};
 
@@ -30,32 +32,21 @@ fn handle_connection(
   use io::Write;
   use {
     consts::status,
-    log::{Logging, ToTimeStamp},
-    server::{
-      request::{GetReqInfo, Parse},
-      response::CheckErr,
-    },
-    types::{EndLog, Host, LogKind, Request},
+    server::{request::Parse, response::CheckErr},
+    types::{Host, Log},
   };
 
-  let mut cxn_log = format!("\n START connection {num_con}\n");
+  let mut cxn_log = format!("START connection {num_con}\n");
 
   let start_cxn = time::SystemTime::now();
 
-  start_cxn
-    .to_timestamp()
-    .tee_to_log(LogKind::Timestamp, &mut cxn_log);
+  start_cxn.log_this(&mut cxn_log);
 
-  let request: Request = io::BufReader::new(&mut stream)
-    .to_lines()
-    .tee_to_log(LogKind::Request, &mut cxn_log);
+  let request_info: RequestInfo = io::BufReader::new(&mut stream).get_info();
 
-  let request_info = request.get_info();
+  let (requested_path, requested_host) = (&request_info.path, &request_info.host);
 
-  dbg!(&request_info);
-  let (requested_path, requested_domain) = (request_info.path, request_info.host);
-
-  let response = match (requested_domain, requested_path) {
+  let response = match (requested_host, requested_path) {
     (Some(domain), Some(path)) => match domain {
       Host::Mycology => mycology::generate::get(path, templates),
       Host::Site => server::response::get(path).check_err(templates),
@@ -72,28 +63,33 @@ fn handle_connection(
 
   stream.write_all(&response.prepend_headers())?;
 
-  EndLog {
+  Log {
+    path: request_info.path,
+    ip: request_info.ip,
+    host: request_info.host,
+    referer: request_info.referer,
     status,
     length,
-    start_cxn,
-    start_time,
+    turnaround: start_cxn,
+    uptime: start_time,
     num_con,
   }
-  .tee_to_log(LogKind::End, &mut cxn_log);
+  .log_this(&mut cxn_log);
 
-  log::write(cxn_log);
+  println!("{}", &cxn_log);
+  log::flush(cxn_log);
 
   Ok(num_con)
 }
 
 use types::{Content, Response};
 trait Prepend {
-  fn prepend_headers<'h>(self) -> Content;
+  fn prepend_headers(self) -> Content;
 }
 
 impl Prepend for Response {
-  fn prepend_headers<'h>(self) -> Content {
-    vec![
+  fn prepend_headers(self) -> Content {
+    [
       format!(
         "{}\r\nContent-Length: {}\r\nContent-Type: {}\r\n\r\n",
         self.status,

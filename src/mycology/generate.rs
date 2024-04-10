@@ -25,7 +25,7 @@ impl FilterData for Categories {
 }
 
 use consts::status;
-pub fn get(path: String, templates: &Templates) -> Response {
+pub fn get(path: &str, templates: &Templates) -> Response {
   let requested_category = path.replace('/', "");
   let mime_type = "text/html";
   let data = parse::yaml(false);

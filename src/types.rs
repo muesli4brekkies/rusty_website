@@ -20,6 +20,8 @@ pub type CxnLog<'l> = &'l mut String;
 
 pub type Content = Vec<u8>;
 
+pub type Request = Vec<String>;
+
 #[derive(Debug)]
 pub struct RequestInfo {
   pub host: Option<Host>,
@@ -34,15 +36,21 @@ pub struct ReqFields {
 }
 
 #[derive(Clone, Copy)]
-pub enum LogKind {
-  NoFmt,
+pub enum LogFmt {
+  // Start
   Timestamp,
-  Request,
-  Uptime,
+  // Request
+  Ip,
+  Referer,
+  Path,
+  Host,
+  // Response
   Status,
   Length,
-  Elapsed,
-  End,
+  Turnaround,
+  // Info
+  Uptime,
+  NumCon,
 }
 
 #[derive(Debug)]
@@ -57,20 +65,24 @@ pub enum Layer {
   Species,
 }
 
-#[derive(Debug)]
-pub struct Request(pub Vec<String>);
-
 pub struct Response {
   pub status: &'static str,
   pub mime_type: &'static str,
   pub content: Vec<u8>,
 }
 
-pub struct EndLog {
+pub struct Log {
+  // Request
+  pub ip: Option<String>,
+  pub host: Option<Host>,
+  pub referer: Option<String>,
+  pub path: Option<String>,
+  // Response
   pub status: String,
   pub length: usize,
-  pub start_cxn: time::SystemTime,
-  pub start_time: time::SystemTime,
+  pub turnaround: time::SystemTime,
+  // Data
+  pub uptime: time::SystemTime,
   pub num_con: u64,
 }
 
