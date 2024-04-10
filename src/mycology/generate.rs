@@ -1,106 +1,61 @@
-use crate::{consts, log, types};
-use std::fs;
+use super::{html, parse};
+use crate::{
+  consts,
+  types::{CatInfo, Categories, Response, Templates},
+};
 
-use types::CatInfo;
-impl CatInfo {
-    pub fn htmlify(&self) -> String {
-        self.genera.iter().fold("".to_string(), |a, genus| {
-            let genus_html = genus
-                .species
-                .iter()
-                .fold("".to_string(), gen_genus(&self.label, &genus.title));
-            format!(
-                r#"{}
-        <details>
-            <summary>
-                &#x2022;&nbsp;{}
-            </summary>{}
-        </details>"#,
-                a, genus.title, genus_html
-            )
-        })
+trait FilterData {
+  fn contains(&self, requested_category: &str) -> bool;
+  fn filter_data(&self, requested_category: &str) -> &CatInfo;
+}
+
+impl FilterData for Categories {
+  fn contains(&self, requested_category: &str) -> bool {
+    self
+      .iter()
+      .map(|cat| &cat.label)
+      .any(|label| label == &requested_category)
+  }
+  fn filter_data(&self, requested_category: &str) -> &CatInfo {
+    self
+      .iter()
+      .find(|cat| cat.label == requested_category)
+      .unwrap()
+  }
+}
+
+use consts::status;
+pub fn page(requested_category: String, templates: &Templates) -> Response {
+  let requested_category = requested_category.replace('/', "");
+  let mime_type = "text/html";
+  let data = parse::yaml(false);
+  if requested_category.is_empty() {
+    Response {
+      status: status::HTTP_200,
+      mime_type,
+      content: templates
+        .menu
+        .replace("{MENU}", &html::menu(&data))
+        .as_bytes()
+        .to_vec(),
     }
-}
-
-use {log::Err, types::GenFold};
-fn gen_genus<'g>(category: &'g str, genus: &'g str) -> GenFold<'g> {
-    Box::new(move |a, species| {
-        let name = format!(
-            "{}{}",
-            species.title,
-            if species.name == "''" {
-                "".to_string()
-            } else {
-                format!(" - {}", species.name)
-            }
-        );
-        let n_files =
-            match fs::read_dir([consts::IMAGE_DIR, category, genus, &species.title].join("/")) {
-                Ok(v) => v.count(),
-                Err(e) => {
-                    format!(
-                        "{} {}{}/{}/{}",
-                        e,
-                        consts::IMAGE_DIR,
-                        category,
-                        genus,
-                        species.title
-                    )
-                    .log_err();
-                    3
-                }
-            };
-        let species_html =
-            (0..n_files).fold("".to_string(), gen_species(category, genus, &species.title));
-        format!(
-            r#"{}
-          <details>
-              <summary>
-                  {}
-              </summary>
-              <p class="blurb">
-                  {}
-              </p>
-              <div class="grid">{}
-              </div>
-          </details>"#,
-            a, name, species.blurb, species_html
-        )
-    })
-}
-
-use types::SpecFold;
-fn gen_species<'s>(category: &'s str, genus: &'s str, species: &'s str) -> SpecFold<'s> {
-    Box::new(move |a, n| {
-        let path = format!(
-            r#"{}/{}/{}/{}{}{}.jpg"#,
-            category, genus, species, genus, species, n
-        );
-        format!(
-            r#"{}
-                  <div>
-                      <a href="//muon.blog/mycology/Largeimages/{}">
-                          <div class="img_box">
-                              <img onload="this.style.opacity=1" loading="lazy" src="//muon.blog/mycology/Smallimages/{}">
-                          </div>
-                      </a>
-                  </div>"#,
-            a, path, path
-        )
-    })
-}
-
-use types::Categories;
-pub fn menu(categories: &Categories) -> String {
-    categories.iter().fold("".to_string(), |a, cat| {
-        format!(
-            r#"{}
-          <p class="menu" id="{}">
-              <a href="/{}">
-                  {}
-              </a>
-          </p>"#,
-            a, cat.label, cat.label, cat.title
-        )
-    })
+  } else if data.contains(&requested_category) {
+    let this_data = data.filter_data(&requested_category);
+    Response {
+      status: status::HTTP_200,
+      mime_type,
+      content: templates
+        .shroompage
+        .replace("{TITLE}", &this_data.title)
+        .replace("{DATA}", &this_data.htmlify())
+        .as_bytes()
+        .to_vec(),
+    }
+  } else {
+    Response {
+      status: status::HTTP_404,
+      mime_type,
+      content: templates.nf404.as_bytes().to_vec(),
+    }
+  }
 }

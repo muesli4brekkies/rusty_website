@@ -1,3 +1,3 @@
-mod generate;
-pub mod mushget;
+pub mod generate;
+mod html;
 mod parse;

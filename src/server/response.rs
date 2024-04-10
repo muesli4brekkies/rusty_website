@@ -1,44 +1,63 @@
 use std::{fs, io};
 
-use crate::{consts, types};
-
-use {consts::domains, types::Domain};
-pub fn decide(requested_domain: Option<String>) -> Option<Domain> {
-    match requested_domain {
-        Some(v) => match v.as_str() {
-            domains::NO_DOMAIN => Some(Domain::Site),
-            domains::MYCOLOGY => Some(Domain::Mycology),
-            _ => None,
-        },
-        None => None,
-    }
-}
+use crate::{
+  consts,
+  types::{self, Templates},
+};
 
 use {
-    consts::{status, MIMETYPES},
-    types::Response,
+  consts::{status, MIMETYPES},
+  types::Response,
 };
-pub fn get(path: String) -> Result<Response, io::Error> {
-    let path = format!("{}{}", consts::PATH.root, &path);
-    match fs::metadata(&path) {
-        Ok(v) => {
-            let path = format!("{}{}", &path, if v.is_dir() { "/index.html" } else { "" });
-            match fs::read(&path) {
-                Ok(v) => {
-                    let file_type = path.split('.').last().unwrap();
-                    let mime_type = MIMETYPES.iter().fold("text/plain", |a, (file, mime)| {
-                        if file == &file_type {
-                            mime
-                        } else {
-                            a
-                        }
-                    });
 
-                    Ok((status::HTTP_200, mime_type, v))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        Err(e) => Err(e),
+pub fn get(path: String) -> Result<Response, io::Error> {
+  let full_path = format!("{}{}", consts::PATH.root, &path);
+  let indexed_path = format!(
+    "{}{}",
+    &full_path,
+    if fs::metadata(&full_path)?.is_dir() {
+      "/index.html"
+    } else {
+      ""
     }
+  );
+  let file_type = indexed_path.split('.').last().unwrap();
+  let mime_type = MIMETYPES
+    .iter()
+    .fold("text/plain", |a, (file, mime)| match file == &file_type {
+      true => mime,
+      false => a,
+    });
+  Ok(Response {
+    status: status::HTTP_200,
+    mime_type,
+    content: fs::read(indexed_path)?,
+  })
+}
+
+pub trait CheckErr {
+  fn check_err(self, templates: &Templates) -> Response;
+}
+
+impl CheckErr for Result<Response, io::Error> {
+  fn check_err(self, templates: &Templates) -> Response {
+    match self {
+      Ok(v) => v,
+      Err(e) => {
+        if e.to_string().contains("Permission denied") {
+          Response {
+            status: status::HTTP_403,
+            mime_type: "text/html",
+            content: templates.pd403.as_bytes().to_vec(),
+          }
+        } else {
+          Response {
+            status: status::HTTP_404,
+            mime_type: "text/html",
+            content: templates.nf404.as_bytes().to_vec(),
+          }
+        }
+      }
+    }
+  }
 }
