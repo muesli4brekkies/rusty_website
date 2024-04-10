@@ -1,5 +1,4 @@
-use core::fmt;
-use std::{io::BufReader, net::TcpStream};
+use std::{io, net, time};
 
 pub type GenFold<'g> = Box<dyn FnMut(String, &SpecInfo) -> String + 'g>;
 
@@ -7,7 +6,7 @@ pub type SpecFold<'s> = Box<dyn FnMut(String, usize) -> String + 's>;
 
 pub type Condition = Box<dyn Fn(&(usize, &String)) -> bool>;
 
-pub type Buffer<'b> = BufReader<&'b mut TcpStream>;
+pub type Buffer<'b> = io::BufReader<&'b mut net::TcpStream>;
 
 pub type Categories = Vec<CatInfo>;
 
@@ -20,6 +19,19 @@ pub type YamlChunks = Vec<Vec<String>>;
 pub type CxnLog<'l> = &'l mut String;
 
 pub type Content = Vec<u8>;
+
+#[derive(Debug)]
+pub struct RequestInfo {
+  pub host: Option<Host>,
+  pub path: Option<String>,
+  pub ip: Option<String>,
+  pub referer: Option<String>,
+}
+
+pub struct ReqFields {
+  pub ip: &'static str,
+  pub referer: &'static str,
+}
 
 #[derive(Clone, Copy)]
 pub enum LogKind {
@@ -34,7 +46,7 @@ pub enum LogKind {
 }
 
 #[derive(Debug)]
-pub enum Domain {
+pub enum Host {
   Site,
   Mycology,
 }
@@ -48,12 +60,18 @@ pub enum Layer {
 #[derive(Debug)]
 pub struct Request(pub Vec<String>);
 
-pub struct Log<T: fmt::Display>(pub T);
-
 pub struct Response {
   pub status: &'static str,
   pub mime_type: &'static str,
   pub content: Vec<u8>,
+}
+
+pub struct EndLog {
+  pub status: String,
+  pub length: usize,
+  pub start_cxn: time::SystemTime,
+  pub start_time: time::SystemTime,
+  pub num_con: u64,
 }
 
 pub struct Paths {

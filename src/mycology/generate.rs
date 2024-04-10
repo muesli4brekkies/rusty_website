@@ -14,7 +14,7 @@ impl FilterData for Categories {
     self
       .iter()
       .map(|cat| &cat.label)
-      .any(|label| label == &requested_category)
+      .any(|label| label == requested_category)
   }
   fn filter_data(&self, requested_category: &str) -> &CatInfo {
     self
@@ -25,8 +25,8 @@ impl FilterData for Categories {
 }
 
 use consts::status;
-pub fn page(requested_category: String, templates: &Templates) -> Response {
-  let requested_category = requested_category.replace('/', "");
+pub fn get(path: String, templates: &Templates) -> Response {
+  let requested_category = path.replace('/', "");
   let mime_type = "text/html";
   let data = parse::yaml(false);
   if requested_category.is_empty() {

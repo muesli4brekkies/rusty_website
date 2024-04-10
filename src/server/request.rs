@@ -1,3 +1,4 @@
+use crate::types::RequestInfo;
 use crate::{consts, types};
 use std::io;
 
@@ -30,37 +31,47 @@ impl WrapRequest for Vec<String> {
 }
 
 pub trait GetReqInfo {
-  fn get_domain(&self) -> Option<String>;
+  fn get_info(&self) -> RequestInfo;
+
   fn get_path(&self) -> Option<String>;
+  fn get_domain(&self) -> Option<Host>;
+  fn get_field(&self, field: &'static str) -> Option<String>;
 }
 
+use {
+  consts::{domains, FIELDS},
+  types::Host,
+};
 impl GetReqInfo for Request {
-  fn get_domain(&self) -> Option<String> {
-    if let Some(v) = self.0.get(1) {
-      let host = v.split('.').next().unwrap().replace("Host: ", "");
-      if host == consts::HOST_NAME {
-        Some("".to_string())
-      } else {
-        Some(host)
-      }
-    } else {
-      None
+  fn get_info(&self) -> RequestInfo {
+    RequestInfo {
+      host: self.get_domain(),
+      path: self.get_path(),
+      ip: self.get_field(FIELDS.ip),
+      referer: self.get_field(FIELDS.referer),
     }
   }
 
   fn get_path(&self) -> Option<String> {
     Some(self.0.first()?.split_whitespace().nth(1)?.to_string())
   }
-}
 
-use {consts::domains, types::Domain};
-pub fn verify_domain(requested_domain: Option<String>) -> Option<Domain> {
-  match requested_domain {
-    Some(v) => match v.as_str() {
-      domains::NO_DOMAIN => Some(Domain::Site),
-      domains::MYCOLOGY => Some(Domain::Mycology),
-      _ => None,
-    },
-    None => None,
+  fn get_domain(&self) -> Option<Host> {
+    match self.0.iter().find(|l| l.starts_with("Host")) {
+      Some(v) => match v.replace("Host: ", "").as_str() {
+        domains::MYCOLOGY => Some(Host::Mycology),
+        domains::NO_DOMAIN => Some(Host::Site),
+        _ => None,
+      },
+      None => None,
+    }
+  }
+
+  fn get_field(&self, field: &'static str) -> Option<String> {
+    self
+      .0
+      .iter()
+      .find(|l| l.starts_with(field))
+      .map(|v| v.replace(field, ""))
   }
 }

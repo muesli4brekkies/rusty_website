@@ -67,20 +67,37 @@ impl ToTimeStamp for time::SystemTime {
   }
 }
 
-use types::Log;
-pub fn end<T: fmt::Display>(log_vec: Vec<Log<T>>, cxn_log: CxnLog) {
-  vec![
-    LogKind::Status,
-    LogKind::Length,
-    LogKind::Elapsed,
-    LogKind::Uptime,
-    LogKind::End,
-  ]
-  .into_iter()
-  .zip(log_vec)
-  .for_each(|(log_type, log)| {
-    log.0.tee_to_log(log_type, cxn_log);
-  });
+use types::EndLog;
+impl Logging for EndLog {
+  fn tee_to_log(self, _: LogKind, cxn_log: CxnLog) -> Self {
+    [
+      (LogKind::Status, &self.status),
+      (LogKind::Length, &self.length.to_string()),
+      (LogKind::Elapsed, &self.start_cxn.to_elapsed()),
+      (LogKind::Uptime, &self.start_time.to_uptime()),
+      (LogKind::End, &self.num_con.to_string()),
+    ]
+    .into_iter()
+    .for_each(|(log_type, log)| {
+      log.tee_to_log(log_type, cxn_log);
+    });
+    self
+  }
+}
+
+trait TimeManip {
+  fn to_elapsed(self) -> String;
+  fn to_uptime(self) -> String;
+}
+
+impl TimeManip for time::SystemTime {
+  fn to_elapsed(self) -> String {
+    self.elapsed().unwrap().as_micros().to_string()
+  }
+
+  fn to_uptime(self) -> String {
+    self.elapsed().unwrap().as_secs().to_wdhms()
+  }
 }
 
 use io::Write;

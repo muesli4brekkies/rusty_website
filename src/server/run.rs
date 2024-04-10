@@ -30,12 +30,12 @@ fn handle_connection(
   use io::Write;
   use {
     consts::status,
-    log::{Logging, ToTimeStamp, ToWdhms},
+    log::{Logging, ToTimeStamp},
     server::{
       request::{GetReqInfo, Parse},
       response::CheckErr,
     },
-    types::{Domain, Log, LogKind, Request},
+    types::{EndLog, Host, LogKind, Request},
   };
 
   let mut cxn_log = format!("\n START connection {num_con}\n");
@@ -50,33 +50,37 @@ fn handle_connection(
     .to_lines()
     .tee_to_log(LogKind::Request, &mut cxn_log);
 
-  let requested_domain = request.get_domain();
+  let request_info = request.get_info();
 
-  let requested_path = request.get_path().unwrap_or("".to_string());
+  dbg!(&request_info);
+  let (requested_path, requested_domain) = (request_info.path, request_info.host);
 
-  let response = match server::request::verify_domain(requested_domain) {
-    None => Response {
+  let response = match (requested_domain, requested_path) {
+    (Some(domain), Some(path)) => match domain {
+      Host::Mycology => mycology::generate::get(path, templates),
+      Host::Site => server::response::get(path).check_err(templates),
+    },
+    _ => Response {
       status: status::HTTP_404,
       mime_type: "text/plain",
       content: "404 lol".as_bytes().to_vec(),
     },
-    Some(v) => match v {
-      Domain::Mycology => mycology::generate::page(requested_path, templates),
-      Domain::Site => server::response::get(requested_path).check_err(templates),
-    },
   };
+
   let status = response.status.split_whitespace().collect::<Vec<&str>>()[1..].join(" ");
-  let length = response.content.len().to_string();
+  let length = response.content.len();
+
   stream.write_all(&response.prepend_headers())?;
 
-  let end_log = vec![
-    Log(status),
-    Log(length),
-    Log(start_cxn.elapsed().unwrap().as_micros().to_string()),
-    Log(start_time.elapsed().unwrap().as_secs().to_wdhms()),
-    Log(num_con.to_string()),
-  ];
-  log::end(end_log, &mut cxn_log);
+  EndLog {
+    status,
+    length,
+    start_cxn,
+    start_time,
+    num_con,
+  }
+  .tee_to_log(LogKind::End, &mut cxn_log);
+
   log::write(cxn_log);
 
   Ok(num_con)

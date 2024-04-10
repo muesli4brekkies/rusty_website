@@ -1,4 +1,4 @@
-use crate::types::Paths;
+use crate::types::{Paths, ReqFields};
 
 pub const YAML_FILE: &str = "/var/www/html/data/shroom_info.yaml";
 
@@ -6,12 +6,15 @@ pub const IMAGE_DIR: &str = "/var/www/html/mycology/Smallimages";
 
 pub const LOG_FILE: &str = "/home/muesli/rusty_website.log";
 
-pub const HOST_NAME: &str = "localhost:7878";
-
 pub mod domains {
-  pub const NO_DOMAIN: &str = "";
-  pub const MYCOLOGY: &str = "mycology";
+  pub const NO_DOMAIN: &str = "muon.blog";
+  pub const MYCOLOGY: &str = "mycology.muon.blog";
 }
+
+pub const FIELDS: ReqFields = ReqFields {
+  ip: "X-Forwarded-For: ",
+  referer: "Referer: ",
+};
 
 pub mod status {
   pub const HTTP_200: &str = "HTTP/1.1 200 OK";
