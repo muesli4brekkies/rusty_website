@@ -1,13 +1,20 @@
-use crate::log::Logging;
-use crate::types::RequestInfo;
-use crate::{consts, log, mycology, server, types};
-use std::{io, net, time};
+use {
+  crate::{
+    consts::status,
+    log::{self, Err, Logging},
+    mycology,
+    server::{self, request::Parse, response::CheckErr},
+    types::{Content, Host, Log, RequestInfo, Response, Templates},
+  },
+  std::{
+    io::{self, Write},
+    net, time,
+  },
+};
 
-use log::Err;
 pub fn start_server() {
-  use net::TcpListener;
   let start_time = time::SystemTime::now();
-  let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+  let listener = net::TcpListener::bind("127.0.0.1:7878").unwrap();
   let mut num_con: u64 = 0;
   let files = server::html::cache();
 
@@ -22,27 +29,19 @@ pub fn start_server() {
   });
 }
 
-use types::Templates;
 fn handle_connection(
   mut stream: net::TcpStream,
   start_time: time::SystemTime,
   num_con: u64,
   templates: &Templates,
 ) -> Result<u64, io::Error> {
-  use io::Write;
-  use {
-    consts::status,
-    server::{request::Parse, response::CheckErr},
-    types::{Host, Log},
-  };
-
   let mut cxn_log = format!("START connection {num_con}\n");
 
   let start_cxn = time::SystemTime::now();
 
   start_cxn.log_this(&mut cxn_log);
 
-  let request_info: RequestInfo = io::BufReader::new(&mut stream).get_info();
+  let request_info: RequestInfo = io::BufReader::new(&mut stream).parse();
 
   let (requested_path, requested_host) = (&request_info.path, &request_info.host);
 
@@ -82,7 +81,6 @@ fn handle_connection(
   Ok(num_con)
 }
 
-use types::{Content, Response};
 trait Prepend {
   fn prepend_headers(self) -> Content;
 }

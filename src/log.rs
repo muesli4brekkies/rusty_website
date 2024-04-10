@@ -1,5 +1,10 @@
-use crate::{consts, types};
-use std::{fs, io, time};
+use {
+  crate::{
+    consts::{self, domains},
+    types::{CxnLog, Host, Log, LogFmt},
+  },
+  std::{fs, io::Write, time},
+};
 
 pub trait Err {
   fn log_err(self);
@@ -32,10 +37,6 @@ fn write_log(string: String, log_type: LogFmt, cxn_log: CxnLog) {
   cxn_log.push_str(&line);
 }
 
-use {
-  consts::domains,
-  types::{CxnLog, Host, Log, LogFmt},
-};
 pub trait Logging {
   fn log_this(self, cxn_log: CxnLog);
 }
@@ -139,7 +140,6 @@ impl ToWdhms for u64 {
   }
 }
 
-use io::Write;
 pub fn flush(log: String) {
   match fs::OpenOptions::new()
     .append(true)

@@ -1,7 +1,14 @@
-use crate::{consts, log, types};
-use std::fs;
+use {
+  crate::{
+    consts,
+    log::Err,
+    types::{
+      CatInfo, Categories, Condition, GenInfo, Genera, Layer, SpecInfo, Species, YamlChunks,
+    },
+  },
+  std::fs,
+};
 
-use types::{CatInfo, Categories, GenInfo, Genera, Layer, SpecInfo, Species, YamlChunks};
 trait Construct {
   fn struct_category(self, no_gen: bool) -> Categories;
   fn struct_genus(self) -> Genera;
@@ -56,7 +63,6 @@ impl Construct for YamlChunks {
   }
 }
 
-use log::Err;
 pub fn yaml(get_just_cats: bool) -> Categories {
   match fs::read_to_string(consts::YAML_FILE) {
     Ok(v) => {
@@ -71,7 +77,6 @@ pub fn yaml(get_just_cats: bool) -> Categories {
   }
 }
 
-use types::Condition;
 fn condition(layer: Layer) -> Condition {
   Box::new(match layer {
     Layer::Category => |(_, s)| !s.starts_with("  ") && s.ends_with(':'),

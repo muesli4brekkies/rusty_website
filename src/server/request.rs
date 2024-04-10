@@ -1,15 +1,17 @@
-use crate::types::RequestInfo;
-use crate::{consts, types};
-use std::io;
+use {
+  crate::{
+    consts::{domains, FIELDS},
+    types::{Buffer, Host, Request, RequestInfo},
+  },
+  std::io::BufRead,
+};
 
-use types::Buffer;
 pub trait Parse {
-  fn get_info(self) -> RequestInfo;
+  fn parse(self) -> RequestInfo;
 }
 
 impl Parse for Buffer<'_> {
-  fn get_info(self) -> RequestInfo {
-    use io::BufRead;
+  fn parse(self) -> RequestInfo {
     let request = self
       .lines()
       .map(Result::unwrap)
@@ -30,10 +32,6 @@ pub trait GetInfo {
   fn get_field(&self, field: &'static str) -> Option<String>;
 }
 
-use {
-  consts::{domains, FIELDS},
-  types::{Host, Request},
-};
 impl GetInfo for Request {
   fn get_path(&self) -> Option<String> {
     Some(self.first()?.split_whitespace().nth(1)?.to_string())

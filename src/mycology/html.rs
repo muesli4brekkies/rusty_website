@@ -1,7 +1,12 @@
-use crate::{consts, log, types};
-use std::fs;
+use {
+  crate::{
+    consts,
+    log::Err,
+    types::{CatInfo, Categories, GenFold, SpecFold},
+  },
+  std::fs,
+};
 
-use types::CatInfo;
 impl CatInfo {
   pub fn htmlify(&self) -> String {
     self.genera.iter().fold("".to_string(), |a, genus| {
@@ -22,7 +27,6 @@ impl CatInfo {
   }
 }
 
-use {log::Err, types::GenFold};
 fn gen_genus<'g>(category: &'g str, genus: &'g str) -> GenFold<'g> {
   Box::new(move |a, species| {
     let name = format!(
@@ -69,7 +73,6 @@ fn gen_genus<'g>(category: &'g str, genus: &'g str) -> GenFold<'g> {
   })
 }
 
-use types::SpecFold;
 fn gen_species<'s>(category: &'s str, genus: &'s str, species: &'s str) -> SpecFold<'s> {
   Box::new(move |a, n| {
     let path = format!(
@@ -90,7 +93,6 @@ fn gen_species<'s>(category: &'s str, genus: &'s str, species: &'s str) -> SpecF
   })
 }
 
-use types::Categories;
 pub fn menu(categories: &Categories) -> String {
   categories.iter().fold("".to_string(), |a, cat| {
     format!(

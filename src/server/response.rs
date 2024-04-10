@@ -1,13 +1,9 @@
-use std::{fs, io};
-
-use crate::{
-  consts,
-  types::{self, Templates},
-};
-
 use {
-  consts::{status, MIMETYPES},
-  types::Response,
+  crate::{
+    consts,
+    types::{Response, Templates},
+  },
+  std::{fs, io},
 };
 
 pub fn get(path: &String) -> Result<Response, io::Error> {
@@ -22,14 +18,14 @@ pub fn get(path: &String) -> Result<Response, io::Error> {
     }
   );
   let file_type = indexed_path.split('.').last().unwrap();
-  let mime_type = MIMETYPES
+  let mime_type = consts::MIMETYPES
     .iter()
     .fold("text/plain", |a, (file, mime)| match file == &file_type {
       true => mime,
       false => a,
     });
   Ok(Response {
-    status: status::HTTP_200,
+    status: consts::status::HTTP_200,
     mime_type,
     content: fs::read(indexed_path)?,
   })
@@ -46,13 +42,13 @@ impl CheckErr for Result<Response, io::Error> {
       Err(e) => {
         if e.to_string().contains("Permission denied") {
           Response {
-            status: status::HTTP_403,
+            status: consts::status::HTTP_403,
             mime_type: "text/html",
             content: templates.pd403.as_bytes().to_vec(),
           }
         } else {
           Response {
-            status: status::HTTP_404,
+            status: consts::status::HTTP_404,
             mime_type: "text/html",
             content: templates.nf404.as_bytes().to_vec(),
           }

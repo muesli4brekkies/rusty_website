@@ -1,7 +1,9 @@
-use super::{html, parse};
-use crate::{
-  consts,
-  types::{CatInfo, Categories, Response, Templates},
+use {
+  super::{html, parse},
+  crate::{
+    consts::status,
+    types::{CatInfo, Categories, Response, Templates},
+  },
 };
 
 trait FilterData {
@@ -24,7 +26,6 @@ impl FilterData for Categories {
   }
 }
 
-use consts::status;
 pub fn get(path: &str, templates: &Templates) -> Response {
   let requested_category = path.replace('/', "");
   let mime_type = "text/html";
