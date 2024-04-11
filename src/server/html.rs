@@ -9,7 +9,7 @@ pub fn cache() -> Templates {
     nf404: get_file(PATH.nf404, &meta),
     pd403: get_file(PATH.pd403, &meta),
     menu: get_file(PATH.menu, &meta),
-    shroompage: get_file(PATH.shroompage, &meta),
+    myc_page: get_file(PATH.shroompage, &meta),
   }
 }
 

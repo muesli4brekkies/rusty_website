@@ -4,7 +4,7 @@ use {
     log::{self, Err, Logging},
     mycology,
     server::{self, request::Parse, response::CheckErr},
-    types::{Content, Host, Log, RequestInfo, Response, Templates},
+    types::{Content, Host, Log, LogFmt, RequestInfo, Response, Templates},
   },
   std::{
     io::{self, Write},
@@ -63,15 +63,15 @@ fn handle_connection(
   stream.write_all(&response.prepend_headers())?;
 
   Log {
-    path: request_info.path,
-    ip: request_info.ip,
-    host: request_info.host,
-    referer: request_info.referer,
-    status,
-    length,
-    turnaround: start_cxn,
-    uptime: start_time,
-    num_con,
+    path: (LogFmt::Path, request_info.path),
+    ip: (LogFmt::Ip, request_info.ip),
+    host: (LogFmt::Host, request_info.host),
+    referer: (LogFmt::Referer, request_info.referer),
+    status: (LogFmt::Status, status),
+    length: (LogFmt::Length, length),
+    turnaround: (LogFmt::Turnaround, start_cxn),
+    uptime: (LogFmt::Uptime, start_time),
+    num_con: (LogFmt::NumCon, num_con),
   }
   .log_this(&mut cxn_log);
 

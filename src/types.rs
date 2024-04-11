@@ -22,7 +22,6 @@ pub type Content = Vec<u8>;
 
 pub type Request = Vec<String>;
 
-#[derive(Debug)]
 pub struct RequestInfo {
   pub host: Option<Host>,
   pub path: Option<String>,
@@ -53,7 +52,21 @@ pub enum LogFmt {
   NumCon,
 }
 
-#[derive(Debug)]
+pub struct Log {
+  // Request
+  pub ip: (LogFmt, Option<String>),
+  pub host: (LogFmt, Option<Host>),
+  pub referer: (LogFmt, Option<String>),
+  pub path: (LogFmt, Option<String>),
+  // Response
+  pub status: (LogFmt, String),
+  pub length: (LogFmt, usize),
+  pub turnaround: (LogFmt, time::SystemTime),
+  // Data
+  pub uptime: (LogFmt, time::SystemTime),
+  pub num_con: (LogFmt, u64),
+}
+
 pub enum Host {
   Site,
   Mycology,
@@ -71,21 +84,6 @@ pub struct Response {
   pub content: Vec<u8>,
 }
 
-pub struct Log {
-  // Request
-  pub ip: Option<String>,
-  pub host: Option<Host>,
-  pub referer: Option<String>,
-  pub path: Option<String>,
-  // Response
-  pub status: String,
-  pub length: usize,
-  pub turnaround: time::SystemTime,
-  // Data
-  pub uptime: time::SystemTime,
-  pub num_con: u64,
-}
-
 pub struct Paths {
   pub root: &'static str,
   pub nf404: &'static str,
@@ -99,7 +97,7 @@ pub struct Templates {
   pub nf404: String,
   pub pd403: String,
   pub menu: String,
-  pub shroompage: String,
+  pub myc_page: String,
 }
 
 pub struct CatInfo {

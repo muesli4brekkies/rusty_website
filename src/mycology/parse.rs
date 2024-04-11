@@ -63,6 +63,22 @@ impl Construct for YamlChunks {
   }
 }
 
+trait Sanitise {
+  fn sanitise(self) -> String;
+}
+
+impl Sanitise for Option<&String> {
+  fn sanitise(self) -> String {
+    self
+      .unwrap()
+      .trim()
+      .trim_start_matches("blurb: ")
+      .trim_start_matches("common_name: ")
+      .trim_start_matches("title: ")
+      .replace(':', "")
+  }
+}
+
 pub fn yaml(get_just_cats: bool) -> Categories {
   match fs::read_to_string(consts::YAML_FILE) {
     Ok(v) => {
@@ -105,20 +121,4 @@ fn split_by(lines: Vec<String>, condition: Condition) -> YamlChunks {
       .to_vec()
     })
     .collect()
-}
-
-trait Sanitise {
-  fn sanitise(self) -> String;
-}
-
-impl Sanitise for Option<&String> {
-  fn sanitise(self) -> String {
-    self
-      .unwrap()
-      .trim()
-      .trim_start_matches("blurb: ")
-      .trim_start_matches("common_name: ")
-      .trim_start_matches("title: ")
-      .replace(':', "")
-  }
 }

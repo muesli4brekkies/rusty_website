@@ -45,11 +45,12 @@ impl Logging for Log {
   fn log_this(self, cxn_log: CxnLog) {
     [
       // Request
-      (LogFmt::Path, &self.path.unwrap_or("None".to_string())),
+      (self.path.0, &self.path.1.unwrap_or("None".to_string())),
       (
-        LogFmt::Host,
+        self.host.0,
         &self
           .host
+          .1
           .map(|v| match v {
             Host::Mycology => domains::MYCOLOGY,
             Host::Site => domains::NO_DOMAIN,
@@ -57,16 +58,19 @@ impl Logging for Log {
           .unwrap_or("None")
           .to_string(),
       ),
-      (LogFmt::Referer, &self.referer.unwrap_or("None".to_string())),
-      (LogFmt::Ip, &self.ip.unwrap_or("None".to_string())),
+      (
+        self.referer.0,
+        &self.referer.1.unwrap_or("None".to_string()),
+      ),
+      (self.ip.0, &self.ip.1.unwrap_or("None".to_string())),
       // Info
       // Response
-      (LogFmt::Status, &self.status),
-      (LogFmt::Length, &self.length.to_string()),
-      (LogFmt::Turnaround, &self.turnaround.to_elapsed()),
+      (self.status.0, &self.status.1),
+      (self.length.0, &self.length.1.to_string()),
+      (self.turnaround.0, &self.turnaround.1.to_elapsed()),
       // Info
-      (LogFmt::Uptime, &self.uptime.to_uptime()),
-      (LogFmt::NumCon, &self.num_con.to_string()),
+      (self.uptime.0, &self.uptime.1.to_uptime()),
+      (self.num_con.0, &self.num_con.1.to_string()),
     ]
     .into_iter()
     .for_each(|(log_type, log)| {
