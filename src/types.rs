@@ -23,105 +23,118 @@ pub type Content = Vec<u8>;
 pub type Request = Vec<String>;
 
 pub struct RequestInfo {
-    pub host: Option<Host>,
-    pub path: Option<String>,
-    pub ip: Option<String>,
-    pub referer: Option<String>,
+  pub host: Option<Host>,
+  pub path: Option<String>,
+  pub ip: Option<String>,
+  pub referer: Option<String>,
 }
 
 pub struct ReqFields {
-    pub ip: &'static str,
-    pub referer: &'static str,
+  pub ip: &'static str,
+  pub referer: &'static str,
 }
 
 #[derive(Clone, Copy)]
 pub enum LogFmt {
-    // Start
-    Timestamp,
-    // Request
-    Ip,
-    Referer,
-    Path,
-    Host,
-    // Response
-    Status,
-    Length,
-    Turnaround,
-    // Info
-    Uptime,
-    NumCon,
-}
-
-pub struct RequestLog {
-    pub ip: (LogFmt, Option<String>),
-    pub host: (LogFmt, Option<Host>),
-    pub referer: (LogFmt, Option<String>),
-    pub path: (LogFmt, Option<String>),
-}
-
-pub struct ResponseLog {
-    pub status: (LogFmt, String),
-    pub length: (LogFmt, usize),
-    pub turnaround: (LogFmt, time::SystemTime),
-}
-
-pub struct InfoLog {
-    pub uptime: (LogFmt, time::SystemTime),
-    pub num_con: (LogFmt, u64),
+  // Start
+  Timestamp,
+  // Request
+  Ip,
+  Referer,
+  Path,
+  Host,
+  // Response
+  Status,
+  Length,
+  Turnaround,
+  // Info
+  Uptime,
+  NumCon,
 }
 
 pub struct Log {
-    pub request: RequestLog,
-    pub response: ResponseLog,
-    pub info: InfoLog,
+  pub request: RequestLog,
+  pub response: ResponseLog,
+  pub info: InfoLog,
+}
+
+pub struct RequestLog {
+  pub ip: (LogFmt, Option<String>),
+  pub host: (LogFmt, Option<Host>),
+  pub referer: (LogFmt, Option<String>),
+  pub path: (LogFmt, Option<String>),
+}
+
+pub struct ResponseLog {
+  pub status: (LogFmt, String),
+  pub length: (LogFmt, usize),
+  pub turnaround: (LogFmt, time::SystemTime),
+}
+
+pub struct InfoLog {
+  pub uptime: (LogFmt, time::SystemTime),
+  pub num_con: (LogFmt, u64),
 }
 
 pub enum Host {
-    Site,
-    Mycology,
+  Site,
+  Mycology,
 }
 
 pub enum Layer {
-    Category,
-    Genus,
-    Species,
+  Category,
+  Genus,
+  Species,
 }
 
 pub struct Response {
-    pub status: &'static str,
-    pub mime_type: &'static str,
-    pub content: Vec<u8>,
+  pub status: &'static str,
+  pub mime_type: &'static str,
+  pub content: Vec<u8>,
 }
 
 pub struct Paths {
-    pub root: &'static str,
-    pub nf404: &'static str,
-    pub pd403: &'static str,
-    pub meta: &'static str,
-    pub menu: &'static str,
-    pub shroompage: &'static str,
+  pub root: &'static str,
+  pub nf404: &'static str,
+  pub pd403: &'static str,
+  pub meta: &'static str,
+  pub menu: &'static str,
+  pub shroompage: &'static str,
+
+  pub frag_category: &'static str,
+  pub frag_genus: &'static str,
+  pub frag_species: &'static str,
+  pub frag_menu: &'static str,
 }
 
 pub struct Templates {
-    pub nf404: String,
-    pub pd403: String,
-    pub menu: String,
-    pub myc_page: String,
+  pub nf404: String,
+  pub pd403: String,
+  pub menu: String,
+  pub myc_page: String,
+  pub fragments: Fragments,
+}
+
+pub struct Fragments {
+  pub category: String,
+  pub genus: String,
+  pub species: String,
+  pub menu: String,
 }
 
 pub struct CatInfo {
-    pub title: String,
-    pub label: String,
-    pub genera: Vec<GenInfo>,
+  pub title: String,
+  pub label: String,
+  pub genera: Vec<GenInfo>,
 }
 
 pub struct GenInfo {
-    pub title: String,
-    pub species: Vec<SpecInfo>,
+  pub title: String,
+  pub species: Vec<SpecInfo>,
 }
 
 pub struct SpecInfo {
-    pub title: String,
-    pub name: String,
-    pub blurb: String,
+  pub title: String,
+  pub name: String,
+  pub blurb: String,
 }
