@@ -1,4 +1,21 @@
-use crate::types::{Paths, ReqFields};
+pub struct ReqFields {
+  pub ip: &'static str,
+  pub referer: &'static str,
+}
+
+pub struct Paths {
+  pub root: &'static str,
+  pub nf404: &'static str,
+  pub pd403: &'static str,
+  pub meta: &'static str,
+  pub menu: &'static str,
+  pub shroompage: &'static str,
+
+  pub frag_category: &'static str,
+  pub frag_genus: &'static str,
+  pub frag_species: &'static str,
+  pub frag_menu: &'static str,
+}
 
 pub const YAML_FILE: &str = "/var/www/html/data/shroom_info.yaml";
 

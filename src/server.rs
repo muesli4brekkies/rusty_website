@@ -1,5 +1,5 @@
 mod html;
 mod request;
-mod response;
+pub mod response;
 pub mod run;
 mod thread;

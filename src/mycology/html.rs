@@ -2,16 +2,17 @@ use {
   crate::{
     consts,
     log::Err,
-    types::{CatInfo, Categories, GenFold, SpecFold, Templates},
+    mycology::generate::CatInfo,
+    server::run::Templates,
+    types::{Categories, GenFold, SpecFold},
   },
   std::fs,
 };
 
-pub fn menu(categories: &Categories, html_frag: &String) -> String {
+pub fn menu(categories: &Categories, html_frag: &str) -> String {
   categories.iter().fold("".to_string(), |a, cat| {
     format!(
-      "{}
-       {}",
+      "{}{}",
       a,
       html_frag
         .replace("{LABEL}", &cat.label)
@@ -28,8 +29,7 @@ impl CatInfo {
         gen_genus(&self.label, &genus.title, templates),
       );
       format!(
-        "{}
-         {}",
+        "{}{}",
         a,
         templates
           .fragments
@@ -44,8 +44,7 @@ impl CatInfo {
 fn gen_genus<'g>(category: &'g str, genus: &'g str, templates: &'g Templates) -> GenFold<'g> {
   Box::new(move |a, species| {
     let name = format!(
-      "{}
-       {}",
+      "{}{}",
       species.title,
       if species.name == "''" {
         "".to_string()
@@ -59,8 +58,7 @@ fn gen_genus<'g>(category: &'g str, genus: &'g str, templates: &'g Templates) ->
       gen_species(category, genus, &species.title, templates),
     );
     format!(
-      "{}
-       {}",
+      "{}{}",
       a,
       templates
         .fragments
@@ -84,8 +82,7 @@ fn gen_species<'s>(
       category, genus, species, genus, species, n
     );
     format!(
-      "{}
-       {}",
+      "{}{}",
       a,
       templates.fragments.species.replace("{PATH}", &path)
     )

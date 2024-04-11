@@ -1,10 +1,52 @@
 use {
   crate::{
     consts::{self, domains},
-    types::{CxnLog, Host, InfoLog, Log, LogFmt, RequestLog, ResponseLog},
+    server::response::Host,
+    types::CxnLog,
   },
   std::{array, fs, io::Write, time},
 };
+
+pub enum LogFmt {
+  // Start
+  Timestamp,
+  // Request
+  Ip,
+  Referer,
+  Path,
+  Host,
+  // Response
+  Status,
+  Length,
+  Turnaround,
+  // Info
+  Uptime,
+  NumCon,
+}
+
+pub struct Log {
+  pub request: RequestLog,
+  pub response: ResponseLog,
+  pub info: InfoLog,
+}
+
+pub struct RequestLog {
+  pub ip: (LogFmt, Option<String>),
+  pub host: (LogFmt, Option<Host>),
+  pub referer: (LogFmt, Option<String>),
+  pub path: (LogFmt, Option<String>),
+}
+
+pub struct ResponseLog {
+  pub status: (LogFmt, String),
+  pub length: (LogFmt, usize),
+  pub turnaround: (LogFmt, time::SystemTime),
+}
+
+pub struct InfoLog {
+  pub uptime: (LogFmt, time::SystemTime),
+  pub num_con: (LogFmt, u64),
+}
 
 pub trait Err {
   fn log_err(self);

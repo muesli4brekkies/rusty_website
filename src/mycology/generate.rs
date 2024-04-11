@@ -2,9 +2,32 @@ use {
   super::{html, parse},
   crate::{
     consts::status,
-    types::{CatInfo, Categories, Content, Response, Templates},
+    server::{response::Response, run::Templates},
+    types::{Categories, Content},
   },
 };
+
+pub enum Layer {
+  Category,
+  Genus,
+  Species,
+}
+pub struct CatInfo {
+  pub title: String,
+  pub label: String,
+  pub genera: Vec<GenInfo>,
+}
+
+pub struct GenInfo {
+  pub title: String,
+  pub species: Vec<SpecInfo>,
+}
+
+pub struct SpecInfo {
+  pub title: String,
+  pub name: String,
+  pub blurb: String,
+}
 
 trait FilterData {
   fn contains(&self, requested_category: &str) -> bool;
@@ -27,12 +50,12 @@ impl FilterData for Categories {
 }
 
 trait FillTemplate {
-  fn fill_menu(&self, categories: Categories, html_frag: &String) -> Content;
+  fn fill_menu(&self, categories: Categories, html_frag: &str) -> Content;
   fn fill_myc(&self, data: CatInfo, templates: &Templates) -> Content;
 }
 
 impl FillTemplate for String {
-  fn fill_menu(&self, categories: Categories, html_frag: &String) -> Content {
+  fn fill_menu(&self, categories: Categories, html_frag: &str) -> Content {
     self
       .replace("{MENU}", &html::menu(&categories, html_frag))
       .as_bytes()
