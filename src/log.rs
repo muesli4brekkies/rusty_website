@@ -1,223 +1,230 @@
 use {
-  crate::{
-    consts::{self, domains},
-    server::response::Host,
-    types::CxnLog,
-  },
-  std::{array, fs, io::Write, time},
+    crate::{
+        consts::{self, domains},
+        server::response::Host,
+        types::CxnLog,
+    },
+    std::{array, fs, io::Write, time},
 };
 
 pub enum LogFmt {
-  // Start
-  Timestamp,
-  // Request
-  Ip,
-  Referer,
-  Path,
-  Host,
-  // Response
-  Status,
-  Length,
-  Turnaround,
-  // Info
-  Uptime,
-  NumCon,
+    // Start
+    Timestamp,
+    // Request
+    Path,
+    Host,
+    UserAgent,
+    Ip,
+    Referer,
+    // Response
+    Status,
+    Length,
+    Turnaround,
+    // Info
+    Uptime,
+    NumCon,
 }
 
 pub struct Log {
-  pub request: RequestLog,
-  pub response: ResponseLog,
-  pub info: InfoLog,
+    pub request: RequestLog,
+    pub response: ResponseLog,
+    pub info: InfoLog,
 }
 
 pub struct RequestLog {
-  pub ip: (LogFmt, Option<String>),
-  pub host: (LogFmt, Option<Host>),
-  pub referer: (LogFmt, Option<String>),
-  pub path: (LogFmt, Option<String>),
+    pub path: Option<String>,
+    pub host: Option<Host>,
+    pub user_agent: Option<String>,
+    pub ip: Option<String>,
+    pub referer: Option<String>,
 }
 
 pub struct ResponseLog {
-  pub status: (LogFmt, String),
-  pub length: (LogFmt, usize),
-  pub turnaround: (LogFmt, time::SystemTime),
+    pub status: String,
+    pub length: usize,
+    pub turnaround: time::SystemTime,
 }
 
 pub struct InfoLog {
-  pub uptime: (LogFmt, time::SystemTime),
-  pub num_con: (LogFmt, u64),
+    pub uptime: time::SystemTime,
+    pub num_con: u64,
 }
 
 pub trait Err {
-  fn log_err(self);
+    fn log_err(self);
 }
 
 impl Err for String {
-  fn log_err(self) {
-    let err = format!("ERROR - {}\n", self);
-    eprint!("{err}");
-    flush(err);
-  }
+    fn log_err(self) {
+        let err = format!("ERROR - {}\n", self);
+        eprint!("{err}");
+        flush(err);
+    }
 }
 
 fn write_log(string: String, log_type: LogFmt, cxn_log: CxnLog) {
-  let line = match log_type {
-    LogFmt::Timestamp => format!("\tDate: {string}\n"),
+    let line = match log_type {
+        LogFmt::Timestamp => format!("\tDate: {string}\n"),
 
-    LogFmt::Path => format!("\tRequest:\n\t\tPath: {string}\n"),
-    LogFmt::Host => format!("\t\tHost: {string}\n"),
-    LogFmt::Referer => format!("\t\tReferer: {string}\n"),
-    LogFmt::Ip => format!("\t\tIp: {string}\n"),
+        LogFmt::Path => format!("\tRequest:\n\t\tPath: {string}\n"),
+        LogFmt::Host => format!("\t\tHost: {string}\n"),
+        LogFmt::UserAgent => format!("\t\tUser Agent: {string}\n"),
+        LogFmt::Referer => format!("\t\tReferer: {string}\n"),
+        LogFmt::Ip => format!("\t\tIp: {string}\n"),
 
-    LogFmt::Status => format!("\tResponse:\n\t\tStatus: {string}\n"),
-    LogFmt::Length => format!("\t\tLength: {string} bytes\n"),
-    LogFmt::Turnaround => format!("\t\tTurnaround: {string}\n"),
+        LogFmt::Status => format!("\tResponse:\n\t\tStatus: {string}\n"),
+        LogFmt::Length => format!("\t\tLength: {string} bytes\n"),
+        LogFmt::Turnaround => format!("\t\tTurnaround: {string}\n"),
 
-    LogFmt::Uptime => format!("\tUp-time:{string}\n"),
-    LogFmt::NumCon => format!("END connection {string}\n"),
-  };
-  cxn_log.push_str(&line);
+        LogFmt::Uptime => format!("\tUp-time:{string}\n"),
+        LogFmt::NumCon => format!("END connection {string}\n"),
+    };
+    cxn_log.push_str(&line);
 }
 
 pub trait Destructure {
-  fn destructure(self) -> array::IntoIter<(LogFmt, String), 9>;
+    fn destructure(self) -> array::IntoIter<(LogFmt, String), 10>;
 }
 
 impl Destructure for Log {
-  fn destructure(self) -> array::IntoIter<(LogFmt, String), 9> {
-    let Log {
-      request: RequestLog {
-        ip,
-        host,
-        referer,
-        path,
-      },
-      response: ResponseLog {
-        status,
-        length,
-        turnaround,
-      },
-      info: InfoLog { uptime, num_con },
-    } = self;
-    [
-      (path.0, path.1.unwrap_or("None".to_string())),
-      (host.0, host.1.to_string()),
-      (ip.0, ip.1.unwrap_or("None".to_string())),
-      (referer.0, referer.1.unwrap_or("None".to_string())),
-      (status.0, status.1),
-      (length.0, length.1.to_string()),
-      (turnaround.0, turnaround.1.to_elapsed()),
-      (uptime.0, uptime.1.to_uptime()),
-      (num_con.0, num_con.1.to_string()),
-    ]
-    .into_iter()
-  }
+    fn destructure(self) -> array::IntoIter<(LogFmt, String), 10> {
+        let Log {
+            request:
+                RequestLog {
+                    ip,
+                    host,
+                    user_agent,
+                    referer,
+                    path,
+                },
+            response:
+                ResponseLog {
+                    status,
+                    length,
+                    turnaround,
+                },
+            info: InfoLog { uptime, num_con },
+        } = self;
+        [
+            (LogFmt::Path, path.unwrap_or("None".to_string())),
+            (LogFmt::Host, host.to_string()),
+            (LogFmt::Ip, ip.unwrap_or("None".to_string())),
+            (LogFmt::Referer, referer.unwrap_or("None".to_string())),
+            (LogFmt::UserAgent, user_agent.unwrap_or("None".to_string())),
+            (LogFmt::Status, status),
+            (LogFmt::Length, length.to_string()),
+            (LogFmt::Turnaround, turnaround.to_elapsed()),
+            (LogFmt::Uptime, uptime.to_uptime()),
+            (LogFmt::NumCon, num_con.to_string()),
+        ]
+        .into_iter()
+    }
 }
 
 pub trait Logging {
-  fn log_this(self, cxn_log: CxnLog);
+    fn log_this(self, cxn_log: CxnLog);
 }
 
 impl Logging for Log {
-  fn log_this(self, cxn_log: CxnLog) {
-    self.destructure().for_each(|(log_type, log)| {
-      write_log(log.to_string(), log_type, cxn_log);
-    });
-  }
+    fn log_this(self, cxn_log: CxnLog) {
+        self.destructure().for_each(|(log_type, log)| {
+            write_log(log, log_type, cxn_log);
+        });
+    }
 }
 
 trait ToString {
-  fn to_string(self) -> String;
+    fn to_string(self) -> String;
 }
 
 impl ToString for Option<Host> {
-  fn to_string(self) -> String {
-    match self {
-      Some(v) => match v {
-        Host::Mycology => domains::MYCOLOGY.to_string(),
-        Host::Site => domains::NO_DOMAIN.to_string(),
-      },
-      None => "None".to_string(),
+    fn to_string(self) -> String {
+        match self {
+            Some(v) => match v {
+                Host::Mycology => domains::MYCOLOGY.to_string(),
+                Host::Site => domains::NO_DOMAIN.to_string(),
+            },
+            None => "None".to_string(),
+        }
     }
-  }
 }
 
 impl Logging for time::SystemTime {
-  fn log_this(self, cxn_log: CxnLog) {
-    write_log(self.to_timestamp(), LogFmt::Timestamp, cxn_log);
-  }
+    fn log_this(self, cxn_log: CxnLog) {
+        write_log(self.to_timestamp(), LogFmt::Timestamp, cxn_log);
+    }
 }
 
 pub trait ToTimeStamp {
-  fn to_timestamp(self) -> String;
+    fn to_timestamp(self) -> String;
 }
 
 impl ToTimeStamp for time::SystemTime {
-  fn to_timestamp(self) -> String {
-    humantime::format_rfc3339_millis(self)
-      .to_string()
-      .replace('T', "\n\tTime: ")
-      .replace('Z', "")
-  }
+    fn to_timestamp(self) -> String {
+        humantime::format_rfc3339_millis(self)
+            .to_string()
+            .replace('T', "\n\tTime: ")
+            .replace('Z', "")
+    }
 }
 
 trait TimeManip {
-  fn to_elapsed(self) -> String;
-  fn to_uptime(self) -> String;
+    fn to_elapsed(self) -> String;
+    fn to_uptime(self) -> String;
 }
 
 impl TimeManip for time::SystemTime {
-  fn to_elapsed(self) -> String {
-    let time = self.elapsed().unwrap().as_micros();
-    if time < 1e3 as u128 {
-      format!("{}μs", time)
-    } else if time < 1e6 as u128 {
-      format!("{}ms", time / 1e3 as u128)
-    } else {
-      format!("{}s", time / 1e6 as u128)
+    fn to_elapsed(self) -> String {
+        let time = self.elapsed().unwrap().as_micros();
+        if time < 1e3 as u128 {
+            format!("{}μs", time)
+        } else if time < 1e6 as u128 {
+            format!("{}ms", time / 1e3 as u128)
+        } else {
+            format!("{}s", time / 1e6 as u128)
+        }
     }
-  }
 
-  fn to_uptime(self) -> String {
-    self.elapsed().unwrap().as_secs().to_wdhms()
-  }
+    fn to_uptime(self) -> String {
+        self.elapsed().unwrap().as_secs().to_wdhms()
+    }
 }
 
 trait ToWdhms {
-  fn to_wdhms(self) -> String;
+    fn to_wdhms(self) -> String;
 }
 
 impl ToWdhms for u64 {
-  fn to_wdhms(self) -> String {
-    [
-      ("weeks", self / 604800),
-      ("days", (self / 86400) % 7),
-      ("hours", (self / 3600) % 24),
-      ("mins", (self / 60) % 60),
-      ("secs", self % 60),
-    ]
-    .into_iter()
-    .fold("".to_string(), |a, (b, time)| {
-      if time != 0 {
-        format!("{a} {time} {b}")
-      } else {
-        a
-      }
-    })
-  }
+    fn to_wdhms(self) -> String {
+        [
+            ("weeks", self / 604800),
+            ("days", (self / 86400) % 7),
+            ("hours", (self / 3600) % 24),
+            ("mins", (self / 60) % 60),
+            ("secs", self % 60),
+        ]
+        .into_iter()
+        .fold("".to_string(), |a, (b, time)| {
+            if time != 0 {
+                format!("{a} {time} {b}")
+            } else {
+                a
+            }
+        })
+    }
 }
 
 pub fn flush(log: String) {
-  match fs::OpenOptions::new()
-    .append(true)
-    .create(true)
-    .open(consts::LOG_FILE)
-  {
-    Err(e) => eprintln!("{} {} - cannot open log file", e, consts::LOG_FILE),
-    Ok(mut v) => {
-      if let Err(e) = v.write_all(log.as_bytes()) {
-        eprintln!("{} {} - error writing to log file", e, consts::LOG_FILE)
-      }
+    match fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(consts::LOG_FILE)
+    {
+        Err(e) => eprintln!("{} {} - cannot open log file", e, consts::LOG_FILE),
+        Ok(mut v) => {
+            if let Err(e) = v.write_all(log.as_bytes()) {
+                eprintln!("{} {} - error writing to log file", e, consts::LOG_FILE)
+            }
+        }
     }
-  }
 }

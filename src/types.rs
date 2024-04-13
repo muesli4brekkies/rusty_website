@@ -1,6 +1,6 @@
 use {
-  crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
-  std::{io, net},
+    crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
+    std::{io, net},
 };
 
 pub type GenFold<'g> = Box<dyn FnMut(String, &SpecInfo) -> String + 'g>;
