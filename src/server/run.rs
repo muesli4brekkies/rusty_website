@@ -44,7 +44,7 @@ pub fn start_server() {
       unique_conn: 0,
       total_conn: 0,
     },
-    last_ip: [0, 0, 0, 0],
+    last_ip: [255, 255, 255, 255],
   };
   let templates = server::html::cache();
 

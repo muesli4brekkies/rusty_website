@@ -51,7 +51,7 @@ impl CheckErr for Result<Response, io::Error> {
 pub fn nf404(templates: &Templates) -> Response {
   Response {
     status: consts::status::HTTP_404,
-    mime_type: "text/plain",
+    mime_type: "text/html",
     content: templates.nf404.as_bytes().to_vec(),
   }
 }
@@ -59,7 +59,7 @@ pub fn nf404(templates: &Templates) -> Response {
 pub fn pd403(templates: &Templates) -> Response {
   Response {
     status: consts::status::HTTP_403,
-    mime_type: "text/plain",
+    mime_type: "text/html",
     content: templates.pd403.as_bytes().to_vec(),
   }
 }
