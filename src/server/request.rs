@@ -74,7 +74,8 @@ impl GetInfo for Request {
 }
 
 fn vec_u8_from_ip(ip: &str) -> Option<[u8; 4]> {
-  ip.split('.')
+  ip.replace(FIELDS.ip, "")
+    .split('.')
     .fold(Some(vec![]), |a: Option<Vec<u8>>, b| {
       b.parse::<u8>()
         .ok()

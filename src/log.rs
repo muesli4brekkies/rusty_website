@@ -195,14 +195,7 @@ impl ToString for Option<IpAddr> {
   fn to_string(self) -> String {
     match self {
       Some(v) => {
-        let mut iter = v.into_iter();
-        format!(
-          "{}.{}.{}.{}",
-          iter.next().unwrap(),
-          iter.next().unwrap(),
-          iter.next().unwrap(),
-          iter.next().unwrap()
-        )
+        format!("{}.{}.{}.{}", v[0], v[1], v[2], v[3],)
       }
       None => "None".to_string(),
     }
