@@ -1,6 +1,6 @@
 use {
-    crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
-    std::{io, net},
+  crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
+  std::{io, net},
 };
 
 pub type GenFold<'g> = Box<dyn FnMut(String, &SpecInfo) -> String + 'g>;
@@ -20,6 +20,8 @@ pub type Species = Vec<SpecInfo>;
 pub type YamlChunks = Vec<Vec<String>>;
 
 pub type CxnLog<'l> = &'l mut String;
+
+pub type IpAddr = [u8; 4];
 
 pub type Content = Vec<u8>;
 
