@@ -97,7 +97,10 @@ fn write_log(string: String, log_type: LogFmt, cxn_log: CxnLog) {
     LogFmt::UniqueConn => format!("\tNum Unique Cxns: {string}\n"),
     LogFmt::TotalConn => format!("\tNum Total Cxns: {string}\n"),
 
-    LogFmt::Mini => format!(r#" "" -> {string}"#),
+    LogFmt::Mini => format!(
+      r#" "" -> {string}
+    "#
+    ),
   };
   cxn_log.push_str(&line);
 }
