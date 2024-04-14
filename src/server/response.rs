@@ -14,30 +14,6 @@ pub struct Response {
   pub content: Vec<u8>,
 }
 
-pub trait CheckErr {
-  fn check_err(self, templates: &Templates) -> Response;
-}
-
-impl CheckErr for Result<Response, io::Error> {
-  fn check_err(self, templates: &Templates) -> Response {
-    match self {
-      Ok(v) => v,
-      Err(e) => match e.to_string().contains("Permission denied") {
-        true => Response {
-          status: consts::status::HTTP_403,
-          mime_type: "text/html",
-          content: templates.pd403.as_bytes().to_vec(),
-        },
-        false => Response {
-          status: consts::status::HTTP_404,
-          mime_type: "text/html",
-          content: templates.nf404.as_bytes().to_vec(),
-        },
-      },
-    }
-  }
-}
-
 pub fn get(path: &String) -> Result<Response, io::Error> {
   let mut full_path = format!("{}{}", consts::PATH.root, &path);
   if fs::metadata(&full_path)?.is_dir() {
@@ -54,4 +30,36 @@ pub fn get(path: &String) -> Result<Response, io::Error> {
     mime_type,
     content: fs::read(full_path)?,
   })
+}
+
+pub trait CheckErr {
+  fn check_err(self, templates: &Templates) -> Response;
+}
+
+impl CheckErr for Result<Response, io::Error> {
+  fn check_err(self, templates: &Templates) -> Response {
+    match self {
+      Ok(v) => v,
+      Err(e) => match e.to_string().contains("Permission denied") {
+        true => pd403(templates),
+        false => nf404(templates),
+      },
+    }
+  }
+}
+
+pub fn nf404(templates: &Templates) -> Response {
+  Response {
+    status: consts::status::HTTP_404,
+    mime_type: "text/plain",
+    content: templates.nf404.as_bytes().to_vec(),
+  }
+}
+
+pub fn pd403(templates: &Templates) -> Response {
+  Response {
+    status: consts::status::HTTP_403,
+    mime_type: "text/plain",
+    content: templates.pd403.as_bytes().to_vec(),
+  }
 }

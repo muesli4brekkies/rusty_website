@@ -22,11 +22,11 @@ pub const YAML_FILE: &str = "/var/www/html/data/shroom_info.yaml";
 
 pub const IMAGE_DIR: &str = "/var/www/html/mycology/Smallimages";
 
-pub const LOG_FILE: &str = "/home/debbyadmin/rusty_website.log";
+pub const LOG_FILE: &str = "/home/muesli/rusty_website.log";
 
 pub mod domains {
-  pub const NO_DOMAIN: &str = "muon.blog";
-  pub const MYCOLOGY: &str = "mycology.muon.blog";
+  pub const NO_DOMAIN: &str = "localhost:7878";
+  pub const MYCOLOGY: &str = "mycology.localhost:7878";
 }
 
 pub const FIELDS: ReqFields = ReqFields {

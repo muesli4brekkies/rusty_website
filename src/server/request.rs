@@ -74,21 +74,12 @@ impl GetInfo for Request {
 }
 
 fn vec_u8_from_ip(ip: &str) -> Option<[u8; 4]> {
-  let ip_vec: Vec<Option<u8>> = ip
-    .replace(FIELDS.ip, "")
-    .split('.')
-    .map(|n| n.parse::<u8>().ok())
-    .collect();
-  ip_vec
-    .iter()
-    .all(|o| o.is_some())
-    .then(|| {
-      ip_vec
-        .into_iter()
-        .map(Option::unwrap)
-        .collect::<Vec<u8>>()
-        .try_into()
+  ip.split('.')
+    .fold(Some(vec![]), |a: Option<Vec<u8>>, b| {
+      b.parse::<u8>()
         .ok()
+        .and_then(|v| a.map(|vec| [vec, [v].to_vec()].concat()))
     })
+    .map(|l| l.try_into().ok())
     .flatten()
 }

@@ -1,12 +1,11 @@
 use {
   crate::{
-    consts::status,
     log::{self, Err, InfoLog, Log, Logging, MiniLog, RequestLog, ResponseLog, Tally},
     mycology,
     server::{
       self,
       request::{Parse, RequestInfo},
-      response::{CheckErr, Host, Response},
+      response::{self, CheckErr, Host, Response},
     },
     types::{Content, IpAddr},
   },
@@ -98,11 +97,7 @@ fn handle_connection(
       Host::Site => server::response::get(path).check_err(templates),
     }
   } else {
-    Response {
-      status: status::HTTP_404,
-      mime_type: "text/plain",
-      content: "404 lol".as_bytes().to_vec(),
-    }
+    response::nf404(templates)
   };
 
   let status = response.status.split_whitespace().collect::<Vec<&str>>()[1..].join(" ");
