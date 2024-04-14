@@ -263,12 +263,9 @@ impl ToWdhms for u64 {
       ("secs", self % 60),
     ]
     .into_iter()
-    .fold("".to_string(), |a, (b, time)| {
-      if time != 0 {
-        format!("{a} {time} {b}")
-      } else {
-        a
-      }
+    .fold("".to_string(), |a, (b, time)| match time {
+      0 => a,
+      _ => format!("{a} {time} {b}"),
     })
   }
 }
