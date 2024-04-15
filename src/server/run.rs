@@ -1,34 +1,25 @@
 use {
   crate::{
-    log::{self, Err, InfoLog, Log, Logging, RequestLog, ResponseLog, Tally},
+    log::{self, InfoLog, Log, Logging, RequestLog, ResponseLog, Tally},
     mycology,
     server::{
       self,
       request::{Parse, RequestInfo},
       response::{self, CheckErr, Host, Response},
+      thread::ThreadPool,
     },
     types::{Content, IpAddr},
   },
   std::{
     io::{self, Write},
-    net, time,
+    net,
+    sync::{
+      mpsc::{self, Receiver},
+      Arc, Mutex,
+    },
+    time,
   },
 };
-
-pub struct Templates {
-  pub nf404: String,
-  pub pd403: String,
-  pub menu: String,
-  pub myc_page: String,
-  pub fragments: Fragments,
-}
-
-pub struct Fragments {
-  pub category: String,
-  pub genus: String,
-  pub species: String,
-  pub menu: String,
-}
 
 #[derive(Clone, Copy)]
 struct LastConn {
@@ -37,6 +28,10 @@ struct LastConn {
 }
 
 pub fn start_server() {
+  let (thread_send, thread_recv) = mpsc::channel();
+  let thread_send = Arc::new(Mutex::new(thread_send));
+  let thread_recv = Arc::new(Mutex::new(thread_recv));
+  let pool = ThreadPool::new(thread_send.clone()).unwrap();
   let uptime = time::SystemTime::now();
   let listener = net::TcpListener::bind("127.0.0.1:7878").unwrap();
   let mut last_conn: LastConn = LastConn {
@@ -46,16 +41,17 @@ pub fn start_server() {
     },
     last_ip: [255, 255, 255, 255],
   };
-  let templates = server::html::cache();
 
   listener.incoming().for_each(|stream| {
-    last_conn = match handle_connection(stream.unwrap(), uptime, last_conn, &templates) {
-      Ok(v) => v,
-      Err(e) => {
-        e.to_string().log_err();
-        last_conn
-      }
-    }
+    let recv = thread_recv.clone();
+    let (conn_send, conn_recv) = mpsc::channel();
+    let conn_send = Arc::new(Mutex::new(conn_send));
+    let conn_recv = Arc::new(Mutex::new(conn_recv));
+    pool.execute(move || {
+      last_conn = handle_connection(stream.unwrap(), uptime, last_conn, recv).unwrap();
+      conn_send.lock().unwrap().send(last_conn).unwrap();
+    });
+    last_conn = conn_recv.lock().unwrap().recv().unwrap();
   });
 }
 
@@ -63,8 +59,9 @@ fn handle_connection(
   mut stream: net::TcpStream,
   uptime: time::SystemTime,
   last_conn: LastConn,
-  templates: &Templates,
+  receiver: Arc<Mutex<Receiver<usize>>>,
 ) -> Result<LastConn, io::Error> {
+  let thread = receiver.lock().unwrap().recv().unwrap();
   let LastConn { tally, last_ip } = last_conn;
   let mut cxn_log = String::new();
 
@@ -93,12 +90,12 @@ fn handle_connection(
 
   let response = if let (Some(domain), Some(path)) = (&host, &path) {
     match domain {
-      Host::Mycology => mycology::generate::get(path, templates),
-      Host::Site => server::response::get(path).check_err(templates),
+      Host::Mycology => mycology::generate::get(path),
+      Host::Site => server::response::get(path).replace_err(),
     }
   } else {
-    response::nf404(templates)
-  };
+    response::nf404()
+  }?;
 
   let status = response
     .status
@@ -121,6 +118,7 @@ fn handle_connection(
     },
     response: ResponseLog { status, length },
     info: InfoLog {
+      thread,
       cxn_time,
       start_time: uptime,
       tally,

@@ -62,7 +62,7 @@ impl GetInfo for Request {
     self
       .iter()
       .find(|l| l.starts_with(FIELDS.ip))
-      .and_then(|v| arr_u8_from_ip(v))
+      .arr_u8_from_ip()
   }
 
   fn get_field(&self, field: &'static str) -> Option<String> {
@@ -73,10 +73,18 @@ impl GetInfo for Request {
   }
 }
 
-fn arr_u8_from_ip(ip: &str) -> Option<[u8; 4]> {
-  ip.replace("poop", "")
-    .split('.')
-    .map(|n| n.parse::<u8>().ok())
-    .collect::<Option<Vec<u8>>>()
-    .and_then(|l| l.try_into().ok())
+trait ArrFromIp {
+  fn arr_u8_from_ip(self) -> Option<IpAddr>;
+}
+
+impl ArrFromIp for Option<&String> {
+  fn arr_u8_from_ip(self) -> Option<IpAddr> {
+    self.and_then(|v| {
+      v.replace(FIELDS.ip, "")
+        .split('.')
+        .map(|n| n.parse::<u8>().ok())
+        .collect::<Option<Vec<u8>>>()
+        .and_then(|l| l.try_into().ok())
+    })
+  }
 }

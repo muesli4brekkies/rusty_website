@@ -1,10 +1,14 @@
 use {
-  super::{html, parse},
+  super::parse,
   crate::{
-    consts::status,
-    server::{response::Response, run::Templates},
+    consts::{self, status},
+    server::{
+      html,
+      response::{self, Response},
+    },
     types::{Categories, Content},
   },
+  std::{fs, io},
 };
 
 pub struct CatInfo {
@@ -46,7 +50,7 @@ impl FilterData for Categories {
 
 trait FillTemplate {
   fn fill_menu(&self, categories: Categories, html_frag: &str) -> Content;
-  fn fill_myc(&self, data: CatInfo, templates: &Templates) -> Content;
+  fn fill_myc(&self, data: CatInfo) -> Result<Content, io::Error>;
 }
 
 impl FillTemplate for String {
@@ -56,39 +60,36 @@ impl FillTemplate for String {
       .as_bytes()
       .to_vec()
   }
-  fn fill_myc(&self, data: CatInfo, templates: &Templates) -> Content {
-    self
-      .replace("{TITLE}", &data.title)
-      .replace("{DATA}", &data.htmlify(templates))
-      .as_bytes()
-      .to_vec()
+  fn fill_myc(&self, data: CatInfo) -> Result<Content, io::Error> {
+    Ok(
+      self
+        .replace("{TITLE}", &data.title)
+        .replace("{DATA}", &data.htmlify()?)
+        .as_bytes()
+        .to_vec(),
+    )
   }
 }
 
-pub fn get(path: &str, templates: &Templates) -> Response {
+pub fn get(path: &str) -> Result<Response, io::Error> {
   let requested_category = path.replace('/', "");
   let mime_type = "text/html";
   let categories = parse::yaml(true);
-  if requested_category.is_empty() {
+  Ok(if requested_category.is_empty() {
     Response {
       status: status::HTTP_200,
       mime_type,
-      content: templates
-        .menu
-        .fill_menu(categories, &templates.fragments.menu),
+      content: html::from_file(consts::PATH.menu)?
+        .fill_menu(categories, &fs::read_to_string(consts::PATH.frag_menu)?),
     }
   } else if categories.contains(&requested_category) {
     let data = parse::yaml(false).filter_data(&requested_category);
     Response {
       status: status::HTTP_200,
       mime_type,
-      content: templates.myc_page.fill_myc(data, templates),
+      content: html::from_file(consts::PATH.shroompage)?.fill_myc(data)?,
     }
   } else {
-    Response {
-      status: status::HTTP_404,
-      mime_type,
-      content: templates.nf404.as_bytes().to_vec(),
-    }
-  }
+    response::nf404()?
+  })
 }

@@ -4,7 +4,7 @@ use {
     server::response::Host,
     types::{CxnLog, IpAddr},
   },
-  std::{fs, io::Write, time},
+  std::{fmt, fs, io::Write, thread, time},
 };
 
 pub struct Log {
@@ -27,6 +27,7 @@ pub struct ResponseLog {
 }
 
 pub struct InfoLog {
+  pub thread: usize,
   pub cxn_time: time::SystemTime,
   pub start_time: time::SystemTime,
   pub tally: Tally,
@@ -42,14 +43,16 @@ pub trait Err {
   fn log_err(self);
 }
 
-impl Err for String {
+impl<T> Err for T
+where
+  T: fmt::Debug,
+{
   fn log_err(self) {
-    let err = format!("ERROR - {}\n", self);
+    let err = format!("ERROR - {:?}\n", self);
     eprint!("{err}");
     flush(err);
   }
 }
-
 pub trait Logging {
   fn log_this(self, cxn_log: CxnLog, is_same_ip: bool);
 }
@@ -68,6 +71,7 @@ impl Logging for Log {
       response: ResponseLog { status, length },
       info:
         InfoLog {
+          thread,
           cxn_time,
           start_time,
           tally: Tally {
@@ -77,6 +81,7 @@ impl Logging for Log {
         },
     } = self;
 
+    let thread = thread + 1;
     let ip = ip.to_string();
     let path = path.unwrap_or("None".to_string());
     let timestamp = cxn_time.to_timestamp();
@@ -85,26 +90,29 @@ impl Logging for Log {
     let referer = referer.unwrap_or("None".to_string());
     let user_agent = user_agent.unwrap_or("None".to_string());
     let turnaround = cxn_time.to_elapsed();
+    let tot_threads = thread::available_parallelism().unwrap().get();
 
     let string = if is_same_ip {
       format!(
-        "{} -> #{} - {} - {} - {} bytes - {}\n",
-        ip, total_conn, timestamp, status, length, path
+        "t{} - {} - #{} - {} - {} - {}b - {} - {}\n",
+        thread, ip, total_conn, timestamp, status, length, turnaround, path
       )
     } else {
       format!(
-        "START\n\tTimestamp: {timestamp}
-        \t# Unique: {unique_conn}
-        \t# Total: {total_conn}
-        \tUp-time:{uptime}
-        \tRequest:\n\t\tPath: {path}
-        \t\tHost: {host}
-        \t\tIp: {ip}
-        \t\tReferer: {referer}
-        \t\tAgent: {user_agent}
-        \tResponse:\n\t\tStatus: {status}
-        \t\tLength: {length} bytes
-        \t\tTurnaround: {turnaround}\n"
+        "START
+Timestamp: {timestamp}
+Thread: {thread}/{tot_threads}
+# Unique: {unique_conn}
+# Total: {total_conn}
+Up-time:{uptime}
+Request:\n\tPath: {path}
+\tHost: {host}
+\tIp: {ip}
+\tReferer: {referer}
+\tAgent: {user_agent}
+Response:\n\t\tStatus: {status}
+\tLength: {length} bytes
+\tTurnaround: {turnaround}\n"
       )
     };
     cxn_log.push_str(&string);

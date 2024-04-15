@@ -1,5 +1,6 @@
 use {
-  crate::{consts, server::run::Templates},
+  super::html,
+  crate::consts::{self, PATH},
   std::{fs, io},
 };
 
@@ -8,6 +9,7 @@ pub enum Host {
   Mycology,
 }
 
+#[derive(Clone)]
 pub struct Response {
   pub status: &'static str,
   pub mime_type: &'static str,
@@ -22,9 +24,7 @@ pub fn get(path: &String) -> Result<Response, io::Error> {
   let file_type = full_path.split('.').last().unwrap();
   let mime_type = consts::MIMETYPES
     .into_iter()
-    .find(|(file, _)| file == &file_type)
-    .map(|(_, mime)| mime)
-    .unwrap_or("text/plain");
+    .fold("text/plain", |a, (b, c)| if b == file_type { c } else { a });
   Ok(Response {
     status: consts::status::HTTP_200,
     mime_type,
@@ -33,33 +33,33 @@ pub fn get(path: &String) -> Result<Response, io::Error> {
 }
 
 pub trait CheckErr {
-  fn check_err(self, templates: &Templates) -> Response;
+  fn replace_err(self) -> Result<Response, io::Error>;
 }
 
 impl CheckErr for Result<Response, io::Error> {
-  fn check_err(self, templates: &Templates) -> Response {
+  fn replace_err(self) -> Result<Response, io::Error> {
     match self {
-      Ok(v) => v,
+      Ok(v) => Ok(v),
       Err(e) => match e.to_string().contains("Permission denied") {
-        true => pd403(templates),
-        false => nf404(templates),
+        true => pd403(),
+        false => nf404(),
       },
     }
   }
 }
 
-pub fn nf404(templates: &Templates) -> Response {
-  Response {
+pub fn nf404() -> Result<Response, io::Error> {
+  Ok(Response {
     status: consts::status::HTTP_404,
     mime_type: "text/html",
-    content: templates.nf404.as_bytes().to_vec(),
-  }
+    content: html::from_file(PATH.nf404)?.as_bytes().to_vec(),
+  })
 }
 
-pub fn pd403(templates: &Templates) -> Response {
-  Response {
+pub fn pd403() -> Result<Response, io::Error> {
+  Ok(Response {
     status: consts::status::HTTP_403,
     mime_type: "text/html",
-    content: templates.pd403.as_bytes().to_vec(),
-  }
+    content: html::from_file(PATH.pd403)?.as_bytes().to_vec(),
+  })
 }
