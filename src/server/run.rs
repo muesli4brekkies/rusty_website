@@ -1,6 +1,6 @@
 use {
   crate::{
-    log::{self, Err, InfoLog, Log, Logging, MiniLog, RequestLog, ResponseLog, Tally},
+    log::{self, Err, InfoLog, Log, Logging, RequestLog, ResponseLog, Tally},
     mycology,
     server::{
       self,
@@ -68,7 +68,7 @@ fn handle_connection(
   let LastConn { tally, last_ip } = last_conn;
   let mut cxn_log = String::new();
 
-  let start_time = time::SystemTime::now();
+  let cxn_time = time::SystemTime::now();
 
   let request_info: RequestInfo = io::BufReader::new(&mut stream).parse();
 
@@ -80,14 +80,14 @@ fn handle_connection(
     referer,
   } = request_info;
 
-  let this_ip = ip.unwrap_or_default();
+  let is_same_ip = ip.unwrap_or_default() == last_ip;
 
   let tally: Tally = Tally {
     total_conn: tally.total_conn + 1,
-    unique_conn: if this_ip != last_ip {
-      tally.unique_conn + 1
+    unique_conn: if is_same_ip {
+      tally.unique_conn
     } else {
-      tally.unique_conn + 0
+      tally.unique_conn + 1
     },
   };
 
@@ -100,45 +100,40 @@ fn handle_connection(
     response::nf404(templates)
   };
 
-  let status = response.status.split_whitespace().collect::<Vec<&str>>()[1..].join(" ");
+  let status = response
+    .status
+    .split_whitespace()
+    .fold("".to_string(), |a, b| match b.contains("HTTP") {
+      true => a,
+      false => format!("{a} {b}"),
+    });
   let length = response.content.len();
 
   stream.write_all(&response.prepend_headers())?;
 
-  if this_ip != last_ip {
-    Log {
-      request: RequestLog {
-        start_time,
-        path,
-        host,
-        ip,
-        user_agent,
-        referer,
-      },
-      response: ResponseLog {
-        status,
-        length,
-        turnaround: start_time,
-      },
-      info: InfoLog { uptime, tally },
-    }
-    .log_this(&mut cxn_log);
-  } else {
-    MiniLog {
-      total_conn: tally.total_conn,
+  Log {
+    request: RequestLog {
       path,
-      turnaround: start_time,
-      length,
-    }
-    .log_this(&mut cxn_log);
+      host,
+      ip,
+      user_agent,
+      referer,
+    },
+    response: ResponseLog { status, length },
+    info: InfoLog {
+      cxn_time,
+      start_time: uptime,
+      tally,
+    },
   }
+  .log_this(&mut cxn_log, is_same_ip);
 
-  println!("{}", &cxn_log);
+  print!("{}", &cxn_log);
   log::flush(cxn_log);
 
   Ok(LastConn {
     tally,
-    last_ip: this_ip,
+    last_ip: ip.unwrap_or_default(),
   })
 }
 

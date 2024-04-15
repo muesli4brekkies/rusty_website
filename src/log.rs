@@ -4,36 +4,8 @@ use {
     server::response::Host,
     types::{CxnLog, IpAddr},
   },
-  std::{array, fs, io::Write, time},
+  std::{fs, io::Write, time},
 };
-
-pub enum LogFmt {
-  // Start
-  Timestamp,
-  // Request
-  Path,
-  Host,
-  UserAgent,
-  Ip,
-  Referer,
-  // Response
-  Status,
-  Length,
-  Turnaround,
-  // Info
-  Uptime,
-  UniqueConn,
-  TotalConn,
-
-  Mini,
-}
-
-pub struct MiniLog {
-  pub total_conn: u64,
-  pub path: Option<String>,
-  pub turnaround: time::SystemTime,
-  pub length: usize,
-}
 
 pub struct Log {
   pub request: RequestLog,
@@ -42,7 +14,6 @@ pub struct Log {
 }
 
 pub struct RequestLog {
-  pub start_time: time::SystemTime,
   pub path: Option<String>,
   pub host: Option<Host>,
   pub user_agent: Option<String>,
@@ -53,11 +24,11 @@ pub struct RequestLog {
 pub struct ResponseLog {
   pub status: String,
   pub length: usize,
-  pub turnaround: time::SystemTime,
 }
 
 pub struct InfoLog {
-  pub uptime: time::SystemTime,
+  pub cxn_time: time::SystemTime,
+  pub start_time: time::SystemTime,
   pub tally: Tally,
 }
 
@@ -79,111 +50,64 @@ impl Err for String {
   }
 }
 
-fn write_log(string: String, log_type: LogFmt, cxn_log: CxnLog) {
-  let line = match log_type {
-    LogFmt::Timestamp => format!("START\n\tDate: {string}\n"),
-
-    LogFmt::Path => format!("\tRequest:\n\t\tPath: {string}\n"),
-    LogFmt::Host => format!("\t\tHost: {string}\n"),
-    LogFmt::UserAgent => format!("\t\tUser Agent: {string}\n"),
-    LogFmt::Referer => format!("\t\tReferer: {string}\n"),
-    LogFmt::Ip => format!("\t\tIp: {string}\n"),
-
-    LogFmt::Status => format!("\tResponse:\n\t\tStatus: {string}\n"),
-    LogFmt::Length => format!("\t\tLength: {string} bytes\n"),
-    LogFmt::Turnaround => format!("\t\tTurnaround: {string}\n"),
-
-    LogFmt::Uptime => format!("\tUp-time:{string}\n"),
-    LogFmt::UniqueConn => format!("\tNum Unique Cxns: {string}\n"),
-    LogFmt::TotalConn => format!("\tNum Total Cxns: {string}\n"),
-
-    LogFmt::Mini => format!(
-      r#" "" -> {string}
-"#
-    ),
-  };
-  cxn_log.push_str(&line);
+pub trait Logging {
+  fn log_this(self, cxn_log: CxnLog, is_same_ip: bool);
 }
 
-pub trait Destructure {
-  fn destructure(self) -> array::IntoIter<(LogFmt, String), 12>;
-}
-
-impl Destructure for Log {
-  fn destructure(self) -> array::IntoIter<(LogFmt, String), 12> {
+impl Logging for Log {
+  fn log_this(self, cxn_log: CxnLog, is_same_ip: bool) {
     let Log {
       request:
         RequestLog {
-          start_time,
           ip,
           host,
           user_agent,
           referer,
           path,
         },
-      response: ResponseLog {
-        status,
-        length,
-        turnaround,
-      },
+      response: ResponseLog { status, length },
       info:
         InfoLog {
-          uptime,
+          cxn_time,
+          start_time,
           tally: Tally {
             unique_conn,
             total_conn,
           },
         },
     } = self;
-    [
-      (LogFmt::Timestamp, start_time.to_timestamp()),
-      (LogFmt::UniqueConn, unique_conn.to_string()),
-      (LogFmt::TotalConn, total_conn.to_string()),
-      (LogFmt::Uptime, uptime.to_uptime()),
-      (LogFmt::Path, path.unwrap_or("None".to_string())),
-      (LogFmt::Host, host.to_string()),
-      (LogFmt::Ip, ip.to_string()),
-      (LogFmt::Referer, referer.unwrap_or("None".to_string())),
-      (LogFmt::UserAgent, user_agent.unwrap_or("None".to_string())),
-      (LogFmt::Status, status),
-      (LogFmt::Length, length.to_string()),
-      (LogFmt::Turnaround, turnaround.to_elapsed()),
-    ]
-    .into_iter()
-  }
-}
 
-pub trait Logging {
-  fn log_this(self, cxn_log: CxnLog);
-}
+    let ip = ip.to_string();
+    let path = path.unwrap_or("None".to_string());
+    let timestamp = cxn_time.to_timestamp();
+    let uptime = start_time.to_uptime();
+    let host = host.to_string();
+    let referer = referer.unwrap_or("None".to_string());
+    let user_agent = user_agent.unwrap_or("None".to_string());
+    let turnaround = cxn_time.to_elapsed();
 
-impl Logging for Log {
-  fn log_this(self, cxn_log: CxnLog) {
-    self.destructure().for_each(|(log_type, log)| {
-      write_log(log, log_type, cxn_log);
-    });
-  }
-}
-
-impl Logging for MiniLog {
-  fn log_this(self, cxn_log: CxnLog) {
-    let MiniLog {
-      total_conn,
-      path,
-      turnaround,
-      length,
-    } = self;
-    write_log(
+    let string = if is_same_ip {
       format!(
-        " #{} - {} - {} bytes - {}",
-        total_conn,
-        turnaround.to_elapsed(),
-        length,
-        path.unwrap_or("None".to_string()),
-      ),
-      LogFmt::Mini,
-      cxn_log,
-    )
+        "{} -> #{} - {} - {} - {} bytes - {}\n",
+        ip, total_conn, timestamp, status, length, path
+      )
+    } else {
+      format!(
+        "START\n\tTimestamp: {timestamp}
+        \t# Unique: {unique_conn}
+        \t# Total: {total_conn}
+        \tUp-time:{uptime}
+        \tRequest:\n\t\tPath: {path}
+        \t\tHost: {host}
+        \t\tIp: {ip}
+        \t\tReferer: {referer}
+        \t\tAgent: {user_agent}
+        \tResponse:\n\t\tStatus: {status}
+        \t\tLength: {length} bytes
+        \t\tTurnaround: {turnaround}\n"
+      )
+    };
+    cxn_log.push_str(&string);
   }
 }
 
@@ -197,7 +121,7 @@ impl ToString for Option<IpAddr> {
       Some(v) => {
         format!("{}.{}.{}.{}", v[0], v[1], v[2], v[3],)
       }
-      None => "None".to_string(),
+      None => "No IP".to_string(),
     }
   }
 }
@@ -222,7 +146,7 @@ impl ToTimeStamp for time::SystemTime {
   fn to_timestamp(self) -> String {
     humantime::format_rfc3339_millis(self)
       .to_string()
-      .replace('T', "\n\tTime: ")
+      .replace('T', " ~ ")
       .replace('Z', "")
   }
 }
@@ -234,14 +158,14 @@ trait TimeManip {
 
 impl TimeManip for time::SystemTime {
   fn to_elapsed(self) -> String {
-    let time = self.elapsed().unwrap().as_micros();
-    if time < 1e3 as u128 {
-      format!("{}μs", time)
-    } else if time < 1e6 as u128 {
-      format!("{}ms", time / 1e3 as u128)
-    } else {
-      format!("{}s", time / 1e6 as u128)
-    }
+    || -> Option<String> {
+      Some(match self.elapsed().ok()?.as_micros() {
+        t if t < 1000 => format!("{}μs", t),
+        t if t < 1000000 => format!("{}ms", t / 1000),
+        t => format!("{}s", t / 1000000),
+      })
+    }()
+    .unwrap_or("Time has gone backwards :(".to_string())
   }
 
   fn to_uptime(self) -> String {

@@ -4,7 +4,7 @@ use {
     server::response::Host,
     types::{Buffer, IpAddr, Request},
   },
-  std::io::BufRead,
+  std::{io::BufRead, vec::Vec},
 };
 
 pub struct RequestInfo {
@@ -62,7 +62,7 @@ impl GetInfo for Request {
     self
       .iter()
       .find(|l| l.starts_with(FIELDS.ip))
-      .and_then(|v| vec_u8_from_ip(v))
+      .and_then(|v| arr_u8_from_ip(v))
   }
 
   fn get_field(&self, field: &'static str) -> Option<String> {
@@ -73,14 +73,10 @@ impl GetInfo for Request {
   }
 }
 
-fn vec_u8_from_ip(ip: &str) -> Option<[u8; 4]> {
-  ip.replace(FIELDS.ip, "")
+fn arr_u8_from_ip(ip: &str) -> Option<[u8; 4]> {
+  ip.replace("poop", "")
     .split('.')
-    .fold(Some(vec![]), |a: Option<Vec<u8>>, b| {
-      b.parse::<u8>()
-        .ok()
-        .and_then(|v| a.map(|vec| [vec, [v].to_vec()].concat()))
-    })
-    .map(|l| l.try_into().ok())
-    .flatten()
+    .map(|n| n.parse::<u8>().ok())
+    .collect::<Option<Vec<u8>>>()
+    .and_then(|l| l.try_into().ok())
 }
