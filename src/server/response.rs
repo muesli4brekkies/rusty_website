@@ -1,6 +1,8 @@
 use {
-  super::html,
-  crate::consts::{self, PATH},
+  crate::{
+    consts::{status, MIMETYPES, PATH},
+    html,
+  },
   std::{fs, io},
 };
 
@@ -17,16 +19,16 @@ pub struct Response {
 }
 
 pub fn get(path: &String) -> Result<Response, io::Error> {
-  let mut full_path = format!("{}{}", consts::PATH.root, &path);
+  let mut full_path = format!("{}{}", PATH.root, &path);
   if fs::metadata(&full_path)?.is_dir() {
     full_path.push_str("/index.html")
   }
   let file_type = full_path.split('.').last().unwrap();
-  let mime_type = consts::MIMETYPES
+  let mime_type = MIMETYPES
     .into_iter()
     .fold("text/plain", |a, (b, c)| if b == file_type { c } else { a });
   Ok(Response {
-    status: consts::status::HTTP_200,
+    status: status::HTTP_200,
     mime_type,
     content: fs::read(full_path)?,
   })
@@ -41,25 +43,28 @@ impl CheckErr for Result<Response, io::Error> {
     match self {
       Ok(v) => Ok(v),
       Err(e) => match e.to_string().contains("Permission denied") {
-        true => pd403(),
-        false => nf404(),
+        true => err::pd403(),
+        false => err::nf404(),
       },
     }
   }
 }
 
-pub fn nf404() -> Result<Response, io::Error> {
-  Ok(Response {
-    status: consts::status::HTTP_404,
-    mime_type: "text/html",
-    content: html::from_file(PATH.nf404)?.as_bytes().to_vec(),
-  })
-}
+pub mod err {
+  use super::*;
+  pub fn nf404() -> Result<Response, io::Error> {
+    Ok(Response {
+      status: status::HTTP_404,
+      mime_type: "text/html",
+      content: html::from_file(PATH.nf404)?.as_bytes().to_vec(),
+    })
+  }
 
-pub fn pd403() -> Result<Response, io::Error> {
-  Ok(Response {
-    status: consts::status::HTTP_403,
-    mime_type: "text/html",
-    content: html::from_file(PATH.pd403)?.as_bytes().to_vec(),
-  })
+  pub fn pd403() -> Result<Response, io::Error> {
+    Ok(Response {
+      status: status::HTTP_403,
+      mime_type: "text/html",
+      content: html::from_file(PATH.pd403)?.as_bytes().to_vec(),
+    })
+  }
 }

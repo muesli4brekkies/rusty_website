@@ -1,14 +1,11 @@
 use {
-  super::parse,
   crate::{
-    consts::{self, status},
-    server::{
-      html,
-      response::{self, Response},
-    },
+    consts, html,
+    mycology::parse,
+    server::response::Response,
     types::{Categories, Content},
   },
-  std::{fs, io},
+  std::io,
 };
 
 pub struct CatInfo {
@@ -75,21 +72,21 @@ pub fn get(path: &str) -> Result<Response, io::Error> {
   let requested_category = path.replace('/', "");
   let mime_type = "text/html";
   let categories = parse::yaml(true);
-  Ok(if requested_category.is_empty() {
-    Response {
-      status: status::HTTP_200,
+  if requested_category.is_empty() {
+    Ok(Response {
+      status: consts::status::HTTP_200,
       mime_type,
       content: html::from_file(consts::PATH.menu)?
-        .fill_menu(categories, &fs::read_to_string(consts::PATH.frag_menu)?),
-    }
+        .fill_menu(categories, &html::from_file(consts::PATH.frag_menu)?),
+    })
   } else if categories.contains(&requested_category) {
     let data = parse::yaml(false).filter_data(&requested_category);
-    Response {
-      status: status::HTTP_200,
+    Ok(Response {
+      status: consts::status::HTTP_200,
       mime_type,
       content: html::from_file(consts::PATH.shroompage)?.fill_myc(data)?,
-    }
+    })
   } else {
-    response::nf404()?
-  })
+    Err(io::Error::new(io::ErrorKind::NotFound, "File Not Found"))
+  }
 }

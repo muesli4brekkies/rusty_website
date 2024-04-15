@@ -94,8 +94,7 @@ impl Logging for Log {
 
     let string = if is_same_ip {
       format!(
-        "t{} - {} - #{} - {} - {} - {}b - {} - {}\n",
-        thread, ip, total_conn, timestamp, status, length, turnaround, path
+        "#{total_conn} - t{thread} - {ip} - {timestamp} - {status} - {length}b - {turnaround} - {path}\n",
       )
     } else {
       format!(
@@ -105,12 +104,14 @@ Thread: {thread}/{tot_threads}
 # Unique: {unique_conn}
 # Total: {total_conn}
 Up-time:{uptime}
-Request:\n\tPath: {path}
+Request:
+\tPath: {path}
 \tHost: {host}
 \tIp: {ip}
 \tReferer: {referer}
 \tAgent: {user_agent}
-Response:\n\t\tStatus: {status}
+Response:
+\tStatus: {status}
 \tLength: {length} bytes
 \tTurnaround: {turnaround}\n"
       )

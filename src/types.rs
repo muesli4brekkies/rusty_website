@@ -26,3 +26,15 @@ pub type IpAddr = [u8; 4];
 pub type Content = Vec<u8>;
 
 pub type Request = Vec<String>;
+
+pub mod tubes {
+  use std::sync::{
+    mpsc::{Receiver, Sender},
+    Arc, Mutex,
+  };
+  pub type Tubes<T> = (Arc<Mutex<Sender<T>>>, Arc<Mutex<Receiver<T>>>);
+
+  pub type RecvTube<T> = Arc<Mutex<Receiver<T>>>;
+
+  pub type SendTube<T> = Arc<Mutex<Sender<T>>>;
+}

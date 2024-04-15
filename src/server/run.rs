@@ -1,23 +1,17 @@
 use {
   crate::{
-    log::{self, InfoLog, Log, Logging, RequestLog, ResponseLog, Tally},
+    log::{self, *},
     mycology,
     server::{
-      self,
-      request::{Parse, RequestInfo},
-      response::{self, CheckErr, Host, Response},
-      thread::ThreadPool,
+      request::*,
+      response::{self, *},
     },
-    types::{Content, IpAddr},
+    thread::*,
+    types::{tubes::*, Content, IpAddr},
   },
   std::{
     io::{self, Write},
-    net,
-    sync::{
-      mpsc::{self, Receiver},
-      Arc, Mutex,
-    },
-    time,
+    net, time,
   },
 };
 
@@ -28,9 +22,7 @@ struct LastConn {
 }
 
 pub fn start_server() {
-  let (thread_send, thread_recv) = mpsc::channel();
-  let thread_send = Arc::new(Mutex::new(thread_send));
-  let thread_recv = Arc::new(Mutex::new(thread_recv));
+  let (thread_send, thread_recv) = make_tube();
   let pool = ThreadPool::new(thread_send.clone()).unwrap();
   let uptime = time::SystemTime::now();
   let listener = net::TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -43,12 +35,10 @@ pub fn start_server() {
   };
 
   listener.incoming().for_each(|stream| {
-    let recv = thread_recv.clone();
-    let (conn_send, conn_recv) = mpsc::channel();
-    let conn_send = Arc::new(Mutex::new(conn_send));
-    let conn_recv = Arc::new(Mutex::new(conn_recv));
+    let thread_recv = thread_recv.clone();
+    let (conn_send, conn_recv) = make_tube();
     pool.execute(move || {
-      last_conn = handle_connection(stream.unwrap(), uptime, last_conn, recv).unwrap();
+      last_conn = handle_connection(stream.unwrap(), uptime, last_conn, thread_recv).unwrap();
       conn_send.lock().unwrap().send(last_conn).unwrap();
     });
     last_conn = conn_recv.lock().unwrap().recv().unwrap();
@@ -59,9 +49,9 @@ fn handle_connection(
   mut stream: net::TcpStream,
   uptime: time::SystemTime,
   last_conn: LastConn,
-  receiver: Arc<Mutex<Receiver<usize>>>,
+  thread_recv: RecvTube<usize>,
 ) -> Result<LastConn, io::Error> {
-  let thread = receiver.lock().unwrap().recv().unwrap();
+  let thread = thread_recv.lock().unwrap().recv().unwrap();
   let LastConn { tally, last_ip } = last_conn;
   let mut cxn_log = String::new();
 
@@ -91,10 +81,11 @@ fn handle_connection(
   let response = if let (Some(domain), Some(path)) = (&host, &path) {
     match domain {
       Host::Mycology => mycology::generate::get(path),
-      Host::Site => server::response::get(path).replace_err(),
+      Host::Site => response::get(path),
     }
+    .replace_err()
   } else {
-    response::nf404()
+    err::nf404()
   }?;
 
   let status = response
