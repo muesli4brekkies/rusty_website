@@ -12,7 +12,6 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
-  // --snip--
   pub fn new(return_sender: Arc<Mutex<mpsc::Sender<usize>>>) -> Result<ThreadPool, io::Error> {
     let size = thread::available_parallelism()?.get();
     assert!(size > 0);
