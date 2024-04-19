@@ -1,3 +1,5 @@
-fn main() {
-    rusty_website::server::run::start_server()
+use rusty_website::types::Result;
+fn main() -> Result<()> {
+    rusty_website::server::run::start_server()?;
+    Ok(())
 }

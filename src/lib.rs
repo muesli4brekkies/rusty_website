@@ -4,4 +4,4 @@ mod log;
 mod mycology;
 pub mod server;
 mod thread;
-mod types;
+pub mod types;
