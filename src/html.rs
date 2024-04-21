@@ -6,8 +6,8 @@ use {
         mycology::generate::CatInfo,
         types::{Categories, GenFold, Result, SpecFold},
     },
-    std::fs,
     core::convert::Into,
+    std::fs,
 };
 
 pub fn menu(categories: &Categories, html_frag: &str) -> String {

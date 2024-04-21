@@ -4,7 +4,12 @@ use {
         server::response::Host,
         types::{CxnLog, IpAddr},
     },
-    std::{fmt, fs, io::Write, thread, time},
+    std::{
+        fmt, fs,
+        io::Write,
+        sync::{mpsc::Receiver, Arc, Mutex},
+        thread, time,
+    },
 };
 
 pub struct Log {
@@ -197,6 +202,89 @@ pub fn flush(log: String) {
         Ok(mut v) => {
             if let Err(e) = v.write_all(log.as_bytes()) {
                 eprintln!("{} {} - error writing to log file", e, consts::LOG_FILE)
+            }
+        }
+    }
+}
+
+pub fn logger(receiver: Arc<Mutex<Receiver<Log>>>) {
+    let mut file = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(consts::LOG_FILE);
+
+    let mut prev_ip: Option<IpAddr> = None;
+    loop {
+        let log = receiver.lock().unwrap().recv();
+
+        match log {
+            Err(_) => {
+                break;
+            }
+            Ok(log) => {
+                let Log {
+                    path,
+                    host,
+                    user_agent,
+                    ip,
+                    referer,
+                    status,
+                    length,
+                    thread,
+                    cxn_time,
+                    start_time,
+                    tally:
+                        Tally {
+                            unique_conn,
+                            total_conn,
+                        },
+                } = log;
+
+                let thread = thread + 1;
+                let ip_str = ip.to_string();
+                let path = path.unwrap_or("None".to_string());
+                let timestamp = cxn_time.to_timestamp();
+                let uptime = start_time.to_uptime();
+                let host = host.to_string();
+                let referer = referer.unwrap_or("None".to_string());
+                let user_agent = user_agent.unwrap_or("None".to_string());
+                let turnaround = cxn_time.to_elapsed();
+                let tot_threads = thread::available_parallelism().unwrap().get();
+
+                let string = if prev_ip.unwrap_or_default() == ip.unwrap_or_default() {
+                    format!(
+        "#{total_conn} - t{thread} - {ip_str} - {timestamp} - {status} - {length}b - {turnaround} - {path}\n",
+      )
+                } else {
+                    format!(
+                        "START\
+                        Timestamp: {timestamp}\
+                        Thread: {thread}/{tot_threads}\
+                        # Unique: {unique_conn}\
+                        # Total: {total_conn}\
+                        Up-time:{uptime}\
+                        Request:\
+                        \tPath: {path}\
+                        \tHost: {host}\
+                        \tIp: {ip_str}\
+                        \tReferer: {referer}\
+                        \tAgent: {user_agent}\
+                        Response:\
+                        \tStatus: {status}\
+                        \tLength: {length} bytes\
+                        \tTurnaround: {turnaround}\n"
+                    )
+                };
+                match file {
+                    Err(ref e) => eprintln!("{} {} - cannot open log file", e, consts::LOG_FILE),
+                    Ok(ref mut v) => {
+                        if let Err(e) = v.write_all(string.as_bytes()) {
+                            eprintln!("{} {} - error writing to log file", e, consts::LOG_FILE)
+                        }
+                    }
+                }
+                print!("{string}");
+                prev_ip = ip;
             }
         }
     }

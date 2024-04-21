@@ -11,7 +11,7 @@ use {
     },
     std::{
         io::{self, Write},
-        net, time,
+        net, thread, time,
     },
 };
 
@@ -23,7 +23,9 @@ struct LastConn {
 
 pub fn start_server() -> Result<()> {
     let (thread_send, thread_recv) = make_tube();
+    let (log_send, log_recv) = make_tube();
     let pool = ThreadPool::new(thread_send.clone())?;
+    thread::spawn(move || logger(log_recv));
     let uptime = time::SystemTime::now();
     let listener = net::TcpListener::bind("127.0.0.1:7878")?;
     let mut last_conn: LastConn = LastConn {
@@ -35,19 +37,16 @@ pub fn start_server() -> Result<()> {
     };
 
     listener.incoming().for_each(|stream| {
+        let log_send = log_send.clone();
         let thread_recv = thread_recv.clone();
-        let (conn_send, conn_recv) = make_tube();
         pool.execute(move || {
-            last_conn = match handle_connection(stream.unwrap(), uptime, last_conn, thread_recv) {
-                Ok(v) => v,
+            match handle_connection(stream.unwrap(), uptime, last_conn, thread_recv, log_send) {
+                Ok(_) => {}
                 Err(e) => {
                     e.log_err();
-                    last_conn
                 }
             };
-            conn_send.lock().unwrap().send(last_conn).unwrap();
         });
-        last_conn = conn_recv.lock().unwrap().recv().unwrap();
     });
     Ok(())
 }
@@ -57,10 +56,10 @@ fn handle_connection(
     uptime: time::SystemTime,
     last_conn: LastConn,
     thread_recv: RecvTube<usize>,
-) -> Result<LastConn> {
+    send_tube: SendTube<Log>,
+) -> Result<()> {
     let thread = thread_recv.lock().unwrap().recv()?;
     let LastConn { tally, last_ip } = last_conn;
-    let mut cxn_log = String::new();
 
     let cxn_time = time::SystemTime::now();
 
@@ -104,28 +103,24 @@ fn handle_connection(
 
     stream.write_all(&response.prepend_headers())?;
 
-    Log {
-        path,
-        host,
-        ip,
-        user_agent,
-        referer,
-        status,
-        length,
-        thread,
-        cxn_time,
-        start_time: uptime,
-        tally,
-    }
-    .log_this(&mut cxn_log, is_same_ip);
-
-    print!("{}", &cxn_log);
-    log::flush(cxn_log);
-
-    Ok(LastConn {
-        tally,
-        last_ip: ip.unwrap_or_default(),
-    })
+    send_tube
+        .lock()
+        .unwrap()
+        .send(Log {
+            path,
+            host,
+            ip,
+            user_agent,
+            referer,
+            status,
+            length,
+            thread,
+            cxn_time,
+            start_time: uptime,
+            tally,
+        })
+        .unwrap();
+    Ok(())
 }
 
 trait Prepend {
