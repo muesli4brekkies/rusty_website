@@ -23,7 +23,6 @@ pub struct Log {
     pub thread: usize,
     pub cxn_time: time::SystemTime,
     pub start_time: time::SystemTime,
-    pub tally: Tally,
 }
 
 #[derive(Clone, Copy)]
@@ -44,67 +43,6 @@ where
         let err = format!("ERROR - {:?}\n", self);
         eprint!("{err}");
         flush(err);
-    }
-}
-pub trait Logging {
-    fn log_this(self, cxn_log: CxnLog, is_same_ip: bool);
-}
-
-impl Logging for Log {
-    fn log_this(self, cxn_log: CxnLog, is_same_ip: bool) {
-        let Log {
-            path,
-            host,
-            user_agent,
-            ip,
-            referer,
-            status,
-            length,
-            thread,
-            cxn_time,
-            start_time,
-            tally: Tally {
-                unique_conn,
-                total_conn,
-            },
-        } = self;
-
-        let thread = thread + 1;
-        let ip = ip.to_string();
-        let path = path.unwrap_or("None".to_string());
-        let timestamp = cxn_time.to_timestamp();
-        let uptime = start_time.to_uptime();
-        let host = host.to_string();
-        let referer = referer.unwrap_or("None".to_string());
-        let user_agent = user_agent.unwrap_or("None".to_string());
-        let turnaround = cxn_time.to_elapsed();
-        let tot_threads = thread::available_parallelism().unwrap().get();
-
-        let string = if is_same_ip {
-            format!(
-        "#{total_conn} - t{thread} - {ip} - {timestamp} - {status} - {length}b - {turnaround} - {path}\n",
-      )
-        } else {
-            format!(
-                "START
-Timestamp: {timestamp}
-Thread: {thread}/{tot_threads}
-# Unique: {unique_conn}
-# Total: {total_conn}
-Up-time:{uptime}
-Request:
-\tPath: {path}
-\tHost: {host}
-\tIp: {ip}
-\tReferer: {referer}
-\tAgent: {user_agent}
-Response:
-\tStatus: {status}
-\tLength: {length} bytes
-\tTurnaround: {turnaround}\n"
-            )
-        };
-        cxn_log.push_str(&string);
     }
 }
 
@@ -214,6 +152,8 @@ pub fn logger(receiver: Arc<Mutex<Receiver<Log>>>) {
         .open(consts::LOG_FILE);
 
     let mut prev_ip: Option<IpAddr> = None;
+    let mut total_conn = 0;
+    let mut unique_conn = 0;
     loop {
         let log = receiver.lock().unwrap().recv();
 
@@ -222,6 +162,9 @@ pub fn logger(receiver: Arc<Mutex<Receiver<Log>>>) {
                 break;
             }
             Ok(log) => {
+
+
+
                 let Log {
                     path,
                     host,
@@ -233,12 +176,9 @@ pub fn logger(receiver: Arc<Mutex<Receiver<Log>>>) {
                     thread,
                     cxn_time,
                     start_time,
-                    tally:
-                        Tally {
-                            unique_conn,
-                            total_conn,
-                        },
                 } = log;
+
+        total_conn+=1;
 
                 let thread = thread + 1;
                 let ip_str = ip.to_string();
@@ -256,6 +196,7 @@ pub fn logger(receiver: Arc<Mutex<Receiver<Log>>>) {
         "#{total_conn} - t{thread} - {ip_str} - {timestamp} - {status} - {length}b - {turnaround} - {path}\n",
       )
                 } else {
+        unique_conn +=1;
                     format!(
                         "START\
                         Timestamp: {timestamp}\
