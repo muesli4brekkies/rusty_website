@@ -7,8 +7,7 @@ use {
   std::{
     fmt, fs,
     io::Write,
-    sync::{mpsc::Receiver, Arc, Mutex},
-    thread, time,
+    sync::{mpsc::Receiver, Arc, Mutex}, time,
   },
 };
 
@@ -20,7 +19,6 @@ pub struct Log {
   pub referer: Option<String>,
   pub status: String,
   pub length: usize,
-  pub thread: usize,
   pub cxn_time: time::SystemTime,
   pub start_time: time::SystemTime,
 }
@@ -166,12 +164,10 @@ pub fn logger(receiver: Arc<Mutex<Receiver<Log>>>) {
           referer,
           status,
           length,
-          thread,
           cxn_time,
           start_time,
         } = log;
 
-        let thread = thread + 1;
         let ip_str = ip.to_string();
         let path = path.unwrap_or_default();
         let timestamp = cxn_time.to_string();
@@ -180,11 +176,10 @@ pub fn logger(receiver: Arc<Mutex<Receiver<Log>>>) {
         let referer = referer.unwrap_or_default();
         let user_agent = user_agent.unwrap_or_default();
         let turnaround = cxn_time.to_elapsed();
-        let tot_threads = thread::available_parallelism().unwrap().get();
 
         let mini_log = |total_conn: i32| {
           format!(
-        "#{total_conn} - t{thread} - {ip_str} - {timestamp} - {status} - {length}b - {turnaround} - {path}\n"
+        "#{total_conn} - {ip_str} - {timestamp} - {status} - {length}b - {turnaround} - {path}\n"
       )
         };
 
@@ -192,7 +187,6 @@ pub fn logger(receiver: Arc<Mutex<Receiver<Log>>>) {
           format!(
             "START\n\
             Timestamp: {timestamp}\n\
-            Thread: {thread}/{tot_threads}\n\
             # Unique: {unique_conn}\n\
             # Total: {total_conn}\n\
             Up-time:{uptime}\n\

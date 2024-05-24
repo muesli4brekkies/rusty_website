@@ -4,7 +4,11 @@ use {
     server::response::Host,
     types::{Buffer, IpAddr, Request},
   },
-  std::{io::BufRead, vec::Vec},
+  std::{
+    io::{self},
+    vec::Vec,
+  },
+  tokio::io::AsyncBufReadExt,
 };
 
 pub struct RequestInfo {
@@ -15,25 +19,26 @@ pub struct RequestInfo {
   pub referer: Option<String>,
 }
 
-pub trait Parse {
-  fn parse(self) -> RequestInfo;
-}
+pub async fn parse(buf: Buffer<'_>) -> Result<RequestInfo, io::Error> {
+  let mut lines = buf.lines();
+  let mut request = vec![];
 
-impl Parse for Buffer<'_> {
-  fn parse(self) -> RequestInfo {
-    let request = self
-      .lines()
-      .map(Result::unwrap)
-      .take_while(String::is_empty)
-      .collect::<Vec<String>>();
-    RequestInfo {
-      host: request.get_host(),
-      path: request.get_path(),
-      user_agent: request.get_field(FIELDS.user_agent),
-      ip: request.get_ip(),
-      referer: request.get_field(FIELDS.referer),
+  loop {
+    if let Some(l) = lines.next_line().await? {
+      if l.is_empty() {
+        break;
+      }
+      request.push(l);
     }
   }
+
+  Ok(RequestInfo {
+    host: request.get_host(),
+    path: request.get_path(),
+    user_agent: request.get_field(FIELDS.user_agent),
+    ip: request.get_ip(),
+    referer: request.get_field(FIELDS.referer),
+  })
 }
 
 trait GetInfo {

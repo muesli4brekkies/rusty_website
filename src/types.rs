@@ -1,6 +1,7 @@
 use {
   crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
-  std::{error, io, net, result},
+  std::{error, result},
+  tokio::{io::BufReader, net::TcpStream},
 };
 
 pub type GenFold<'g> = Box<dyn FnMut(String, &SpecInfo) -> String + 'g>;
@@ -9,7 +10,7 @@ pub type SpecFold<'s> = Box<dyn FnMut(String, usize) -> String + 's>;
 
 pub type Condition = Box<dyn Fn(&(usize, &String)) -> bool>;
 
-pub type Buffer<'b> = io::BufReader<&'b mut net::TcpStream>;
+pub type Buffer<'b> = BufReader<&'b mut TcpStream>;
 
 pub type Categories = Vec<CatInfo>;
 

@@ -6,51 +6,44 @@ use {
       request::*,
       response::{self, *},
     },
-    thread::*,
     types::{tubes::*, Content, Result},
   },
   std::{
-    io::{self, Write},
-    net, thread, time,
+    sync::{mpsc, Arc, Mutex},
+    thread, time,
+  },
+  tokio::{
+    io::{AsyncWriteExt, BufReader},
+    net::{TcpListener, TcpStream},
   },
 };
 
-pub fn start_server() -> Result<()> {
-  let (thread_send, thread_recv) = make_tube();
-
+pub async fn start_server() -> Result<()> {
   let (log_send, log_recv) = make_tube();
-
-  let pool = ThreadPool::new(thread_send.clone())?;
 
   let uptime = time::SystemTime::now();
 
   thread::spawn(|| logger(log_recv));
 
-  net::TcpListener::bind("127.0.0.1:7878")?
-    .incoming()
-    .for_each(|stream| {
-      let log_send = log_send.clone();
-      let thread_recv = thread_recv.clone();
-      pool.execute(move || {
-        match handle_connection(stream.unwrap(), uptime, thread_recv, log_send) {
-          Ok(_) => {}
-          Err(e) => {
-            e.log_err();
-          }
-        };
-      });
+  let listener = TcpListener::bind("127.0.0.1:7878").await?;
+
+  loop {
+    let (stream, _) = listener.accept().await?;
+    let log_send = log_send.clone();
+
+    tokio::spawn(async move {
+      if let Err(e) = handle_connection(stream, uptime, log_send).await {
+        eprintln!("{}", e.to_string())
+      }
     });
-  Ok(())
+  }
 }
 
-fn handle_connection(
-  mut stream: net::TcpStream,
+async fn handle_connection(
+  mut stream: TcpStream,
   uptime: time::SystemTime,
-  thread_recv: RecvTube<usize>,
   log_send: SendTube<Log>,
 ) -> Result<()> {
-  let thread = thread_recv.lock().unwrap().recv()?;
-
   let cxn_time = time::SystemTime::now();
 
   let RequestInfo {
@@ -59,7 +52,7 @@ fn handle_connection(
     user_agent,
     ip,
     referer,
-  } = io::BufReader::new(&mut stream).parse();
+  } = parse(BufReader::new(&mut stream)).await?;
 
   let response = if let (Some(domain), Some(path)) = (&host, &path) {
     match domain {
@@ -80,7 +73,8 @@ fn handle_connection(
     });
   let length = response.content.len();
 
-  stream.write_all(&response.prepend_headers())?;
+  stream.write_all(&response.prepend_headers()).await?;
+  stream.flush().await?;
 
   log_send
     .lock()
@@ -93,7 +87,6 @@ fn handle_connection(
       referer,
       status,
       length,
-      thread,
       cxn_time,
       start_time: uptime,
     })
@@ -119,4 +112,9 @@ impl Prepend for Response {
     ]
     .concat()
   }
+}
+
+pub fn make_tube<T>() -> Tubes<T> {
+  let (r, s) = mpsc::channel();
+  (Arc::new(Mutex::new(r)), Arc::new(Mutex::new(s)))
 }

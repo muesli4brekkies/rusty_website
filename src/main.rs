@@ -1,5 +1,6 @@
 use rusty_website::types::Result;
-fn main() -> Result<()> {
-  rusty_website::server::run::start_server()?;
+#[tokio::main]
+async fn main() -> Result<()> {
+  rusty_website::server::run::start_server().await?;
   Ok(())
 }
