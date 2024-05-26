@@ -1,2 +1,2 @@
 pub mod generate;
-mod parse;
+pub mod parse;

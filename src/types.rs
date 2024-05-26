@@ -1,7 +1,7 @@
 use {
-  crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
-  std::{error, result},
-  tokio::{io::BufReader, net::TcpStream},
+    crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
+    std::{error, result},
+    tokio::{io::BufReader, net::TcpStream},
 };
 
 pub type GenFold<'g> = Box<dyn FnMut(String, &SpecInfo) -> String + 'g>;
@@ -29,15 +29,3 @@ pub type Content = Vec<u8>;
 pub type Request = Vec<String>;
 
 pub type Result<T> = result::Result<T, Box<dyn error::Error>>;
-
-pub mod tubes {
-  use std::sync::{
-    mpsc::{Receiver, Sender},
-    Arc, Mutex,
-  };
-  pub type Tubes<T> = (Arc<Mutex<Sender<T>>>, Arc<Mutex<Receiver<T>>>);
-
-  pub type RecvTube<T> = Arc<Mutex<Receiver<T>>>;
-
-  pub type SendTube<T> = Arc<Mutex<Sender<T>>>;
-}
