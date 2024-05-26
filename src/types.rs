@@ -1,7 +1,7 @@
 use {
-    crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
-    std::{error, result},
-    tokio::{io::BufReader, net::TcpStream},
+  crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
+  std::{error, result},
+  tokio::{io::BufReader, net::TcpStream},
 };
 
 pub type GenFold<'g> = Box<dyn FnMut(String, &SpecInfo) -> String + 'g>;
