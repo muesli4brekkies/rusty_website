@@ -7,20 +7,17 @@ use {
   std::io,
 };
 
-#[derive(Clone)]
 pub struct CatInfo {
   pub title: String,
   pub label: String,
   pub genera: Vec<GenInfo>,
 }
 
-#[derive(Clone)]
 pub struct GenInfo {
   pub title: String,
   pub species: Vec<SpecInfo>,
 }
 
-#[derive(Clone)]
 pub struct SpecInfo {
   pub title: String,
   pub name: String,
@@ -29,7 +26,7 @@ pub struct SpecInfo {
 
 trait FilterData {
   fn contains(&self, requested_category: &str) -> bool;
-  fn filter_data(self, requested_category: &str) -> Result<CatInfo>;
+  fn filter_data(&self, requested_category: &str) -> Result<&CatInfo>;
 }
 
 impl FilterData for Categories {
@@ -40,10 +37,10 @@ impl FilterData for Categories {
       .any(|label| label == requested_category)
   }
 
-  fn filter_data(self, requested_category: &str) -> Result<CatInfo> {
+  fn filter_data(&self, requested_category: &str) -> Result<&CatInfo> {
     Ok(
       self
-        .into_iter()
+        .iter()
         .find(|cat| cat.label == requested_category)
         .ok_or_else(|| Box::new(io::Error::new(io::ErrorKind::NotFound, "File Not Found")))?,
     )
@@ -51,19 +48,19 @@ impl FilterData for Categories {
 }
 
 trait FillTemplate {
-  fn fill_menu(&self, categories: Categories, html_frag: &str) -> Content;
-  fn fill_myc(&self, data: CatInfo) -> Result<Content>;
+  fn fill_menu(&self, categories: &Categories, html_frag: &str) -> Content;
+  fn fill_myc(&self, data: &CatInfo) -> Result<Content>;
 }
 
 impl FillTemplate for String {
-  fn fill_menu(&self, categories: Categories, html_frag: &str) -> Content {
+  fn fill_menu(&self, categories: &Categories, html_frag: &str) -> Content {
     self
-      .replace("{MENU}", &html::menu(&categories, html_frag))
-      .replace("{SEARCH}", &html::search(&categories))
-      .replace("{DATA}", &html::data(&categories))
+      .replace("{MENU}", &html::menu(categories, html_frag))
+      .replace("{SEARCH}", &html::search(categories))
+      .replace("{DATA}", &html::data(categories))
       .into_bytes()
   }
-  fn fill_myc(&self, data: CatInfo) -> Result<Content> {
+  fn fill_myc(&self, data: &CatInfo) -> Result<Content> {
     Ok(
       self
         .replace("{TITLE}", &data.title)
@@ -73,7 +70,7 @@ impl FillTemplate for String {
   }
 }
 
-pub async fn get(categories: Categories, path: &str) -> Result<Response> {
+pub async fn get(categories: &Categories, path: &str) -> Result<Response> {
   let requested_category = path.replace('/', "");
   let mime_type = "text/html";
   match (

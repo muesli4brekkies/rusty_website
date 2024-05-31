@@ -9,7 +9,7 @@ use {
 };
 
 pub fn menu(categories: &Categories, html_frag: &str) -> String {
-  categories.iter().fold("".to_string(), |a, cat| {
+  categories.iter().fold(String::new(), |a, cat| {
     format!(
       "{}{}",
       a,
@@ -47,7 +47,7 @@ pub fn search(categories: &Categories) -> String {
         })))
       .collect::<Vec<SearchInfo>>()
       .into_iter()
-      .fold("".to_string(), |a, info| format!(
+      .fold(String::new(), |a, info| format!(
         "{}\n<option>{}</option>",
         a, info.species,
       ))
@@ -67,7 +67,7 @@ pub fn data(categories: &Categories) -> String {
     })
     .collect::<Vec<SearchInfo>>()
     .into_iter()
-    .fold("".to_string(), |a, info| {
+    .fold(String::new(), |a, info| {
       format!(r#"{}"{}":"{}","#, a, info.species, info.category,)
     })
 }
@@ -85,23 +85,20 @@ impl CatInfo {
       genus: &from_file(PATH.frag_genus)?,
       species: &from_file(PATH.frag_species)?,
     };
-    self
-      .genera
-      .iter()
-      .try_fold("".to_string(), move |a, genus| {
-        let genus_html = genus.species.iter().fold(
-          "".to_string(),
-          gen_genus(&self.label, &genus.title, &html_frags),
-        );
-        Ok(format!(
-          "{}{}",
-          a,
-          html_frags
-            .category
-            .replace("{TITLE}", &genus.title)
-            .replace("{HTML}", &genus_html)
-        ))
-      })
+    self.genera.iter().try_fold(String::new(), move |a, genus| {
+      let genus_html = genus.species.iter().fold(
+        String::new(),
+        gen_genus(&self.label, &genus.title, &html_frags),
+      );
+      Ok(format!(
+        "{}{}",
+        a,
+        html_frags
+          .category
+          .replace("{TITLE}", &genus.title)
+          .replace("{HTML}", &genus_html)
+      ))
+    })
   }
 }
 
@@ -111,14 +108,14 @@ fn gen_genus<'g>(category: &'g str, genus: &'g str, html_frags: &'g HtmlFrags<'g
       "{}{}",
       species.title,
       if species.name == "''" {
-        "".to_string()
+        String::new()
       } else {
         format!(" - {}", species.name)
       }
     );
     let path = [consts::IMAGE_DIR, category, genus, &species.title].join("/");
     let species_html = (0..count_dir(path)).fold(
-      "".to_string(),
+      String::new(),
       gen_species(category, genus, &species.title, html_frags),
     );
     format!(

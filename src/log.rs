@@ -5,7 +5,10 @@ use {
     types::IpAddr,
   },
   std::time,
-  tokio::{fs, io::AsyncWriteExt},
+  tokio::{
+    fs::{self, File},
+    io::AsyncWriteExt,
+  },
 };
 
 pub struct Log {
@@ -154,11 +157,20 @@ impl ToWdhms for u64 {
       ("secs", self % 60),
     ]
     .into_iter()
-    .fold("".to_string(), |a, (b, time)| match time {
+    .fold(String::new(), |a, (b, time)| match time {
       0 => a,
       _ => format!("{a} {time} {b}"),
     })
   }
+}
+
+pub async fn open() -> File {
+  fs::OpenOptions::new()
+    .append(true)
+    .create(true)
+    .open(consts::LOG_FILE)
+    .await
+    .unwrap_or_else(|_| panic!("{} - cannot open log file", consts::LOG_FILE))
 }
 
 pub async fn this(string: String, mut log_file: fs::File) {

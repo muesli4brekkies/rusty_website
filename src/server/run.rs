@@ -1,7 +1,7 @@
 use {
   crate::{
     consts,
-    log::{self, *},
+    log::{self, Log},
     mycology::{self, parse},
     server::{
       request::*,
@@ -9,7 +9,7 @@ use {
     },
     types::{Categories, Content, IpAddr, Result},
   },
-  std::{sync::Arc, time},
+  std::{sync::Arc, time::SystemTime},
   tokio::{
     fs,
     io::{AsyncWriteExt, BufReader},
@@ -25,41 +25,29 @@ struct CxnInfo {
 }
 
 pub async fn start_server() -> Result<()> {
-  let mut last_mod = time::SystemTime::UNIX_EPOCH;
-  let mut yaml: Categories = vec![];
+  let mut last_modified = SystemTime::UNIX_EPOCH;
+  let mut yaml: Arc<Categories> = Arc::new(vec![]); // empty vec to initialise
   let cxn_info = Arc::new(Mutex::new(CxnInfo {
     ip: [0, 0, 0, 0],
-    unique_cxn: 0,
-    total_cxn: 0,
+    unique_cxn: 1,
+    total_cxn: 1,
   }));
 
-  let log_file = fs::OpenOptions::new()
-    .append(true)
-    .create(true)
-    .open(consts::LOG_FILE)
-    .await
-    .unwrap_or_else(|_| panic!("{} - cannot open log file", consts::LOG_FILE));
+  let log_file = log::open().await;
 
-  let uptime = time::SystemTime::now();
+  let uptime = SystemTime::now();
 
   let listener = TcpListener::bind("127.0.0.1:7878").await?;
 
   loop {
     let (stream, _) = listener.accept().await?;
-    let log_file = log_file.try_clone().await?;
-    let curr_mod = fs::metadata(consts::YAML_FILE).await?.modified()?;
 
-    (yaml, last_mod) = if last_mod != curr_mod {
-      println!("*** YAML CHANGE DETECTED - RELOADED ***");
-      (parse::yaml().await, curr_mod)
-    } else {
-      (yaml, curr_mod)
-    };
-    let yaml = yaml.clone();
-    let cxn_info = cxn_info.clone();
+    (yaml, last_modified) = memo_yaml(last_modified, yaml).await?;
+
+    let (log_file, yaml, cxn_info) = (log_file.try_clone().await?, yaml.clone(), cxn_info.clone());
 
     tokio::spawn(async move {
-      if let Err(e) = handle_connection(stream, uptime, log_file, yaml, cxn_info).await {
+      if let Err(e) = handle_connection(stream, uptime, &yaml, log_file, cxn_info).await {
         eprintln!("{}", e)
       }
     });
@@ -68,12 +56,12 @@ pub async fn start_server() -> Result<()> {
 
 async fn handle_connection(
   mut stream: TcpStream,
-  uptime: time::SystemTime,
+  uptime: SystemTime,
+  yaml: &Categories,
   log_file: fs::File,
-  yaml: Categories,
   cxn_info: Arc<Mutex<CxnInfo>>,
 ) -> Result<()> {
-  let cxn_time = time::SystemTime::now();
+  let cxn_time = SystemTime::now();
 
   let RequestInfo {
     host,
@@ -84,14 +72,13 @@ async fn handle_connection(
   } = parse(BufReader::new(&mut stream)).await?;
 
   let mut cxn_info = cxn_info.lock().await;
-  let unique_cxn = cxn_info.unique_cxn;
-  let total_cxn = cxn_info.total_cxn;
-  let last_ip = cxn_info.ip;
-  cxn_info.ip = ip.unwrap_or_default();
+  let (unique_cxn, total_cxn, last_ip) = (cxn_info.unique_cxn, cxn_info.total_cxn, cxn_info.ip);
+
   if ip.unwrap_or_default() != last_ip {
     cxn_info.unique_cxn += 1;
   }
   cxn_info.total_cxn += 1;
+  cxn_info.ip = ip.unwrap_or_default();
   drop(cxn_info);
 
   let response = if let (Some(domain), Some(path)) = (&host, &path) {
@@ -107,7 +94,7 @@ async fn handle_connection(
   let status = response
     .status
     .split_whitespace()
-    .fold("".to_string(), |a, b| match b.contains("HTTP") {
+    .fold(String::new(), |a, b| match b.contains("HTTP") {
       true => a,
       false => format!("{a} {b}"),
     });
@@ -135,6 +122,19 @@ async fn handle_connection(
   )
   .await;
   Ok(())
+}
+
+async fn memo_yaml(
+  last_modified: SystemTime,
+  memo: Arc<Categories>,
+) -> Result<(Arc<Categories>, SystemTime)> {
+  let curr_modified = fs::metadata(consts::YAML_FILE).await?.modified()?;
+  if last_modified == curr_modified {
+    Ok((memo, curr_modified))
+  } else {
+    println!("*** YAML CHANGE DETECTED - RELOADED ***");
+    Ok((Arc::new(parse::yaml().await), curr_modified))
+  }
 }
 
 trait Prepend {
