@@ -55,11 +55,12 @@ pub const PATH: Paths = Paths {
   frag_menu: "/var/www/html/data/fragments/menu.html",
 };
 
-pub const MIMETYPES: [(&str, &str); 6] = [
+pub const MIMETYPES: [(&str, &str); 7] = [
   ("jpg", "image/jpeg"),
   ("png", "image/png"),
   ("html", "text/html"),
   ("txt", "text/plain"),
   ("css", "text/css"),
   ("xml", "application/xml"),
+  ("mp4", "video/mp4"),
 ];
