@@ -19,7 +19,7 @@ pub struct RequestInfo {
   pub referer: Option<String>,
 }
 
-pub async fn parse(buf: Buffer<'_>) -> Result<RequestInfo, io::Error> {
+pub async fn parse_tcp_stream(buf: Buffer<'_>) -> Result<RequestInfo, io::Error> {
   let mut lines = buf.lines();
   let mut request = vec![];
 

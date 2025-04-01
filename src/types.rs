@@ -1,10 +1,10 @@
 use {
-  crate::mycology::generate::{CatInfo, GenInfo, SpecInfo},
-  std::{error, result},
-  tokio::{io::BufReader, net::TcpStream},
+    crate::mycology::generate::{CatInfo, SpeInfo},
+    std::{error, result},
+    tokio::{io::BufReader, net::TcpStream},
 };
 
-pub type GenFold<'g> = Box<dyn FnMut(String, &SpecInfo) -> String + 'g>;
+pub type GenFold<'g> = Box<dyn FnMut(String, &SpeInfo) -> String + 'g>;
 
 pub type SpecFold<'s> = Box<dyn FnMut(String, usize) -> String + 's>;
 
@@ -14,11 +14,13 @@ pub type Buffer<'b> = BufReader<&'b mut TcpStream>;
 
 pub type Categories = Vec<CatInfo>;
 
-pub type Genera = Vec<GenInfo>;
+pub type YamlString = String;
 
-pub type Species = Vec<SpecInfo>;
+pub type YamlChunks = Vec<Vec<YamlLine>>;
 
-pub type YamlChunks = Vec<Vec<String>>;
+pub type YamlLines = Vec<YamlLine>;
+
+pub type YamlLine = String;
 
 pub type CxnLog<'l> = &'l mut String;
 
